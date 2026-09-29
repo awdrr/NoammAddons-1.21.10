@@ -1,0 +1,31 @@
+name: donut-gamble
+on:
+  push:
+    paths:
+      - 'donut-gamble/**'
+      - '.github/workflows/donut-gamble.yml'
+  pull_request:
+    paths:
+      - 'donut-gamble/**'
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    defaults:
+      run:
+        working-directory: donut-gamble
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          java-version: '21'
+          distribution: 'microsoft'
+      - name: build
+        run: |
+          chmod +x ./gradlew
+          ./gradlew build
+      - uses: actions/upload-artifact@v4
+        with:
+          name: donut-gamble
+          path: donut-gamble/build/libs/

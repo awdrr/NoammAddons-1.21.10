@@ -1,0 +1,25 @@
+{
+  "schemaVersion": 1,
+  "id": "donutgamble",
+  "version": "${version}",
+  "name": "Donut Gamble",
+  "description": "Odds calculator, roll tracker and /pay helper for Donut SMP dispenser gambling.",
+  "authors": ["awdrr"],
+  "license": "CC0-1.0",
+  "environment": "client",
+  "entrypoints": {
+    "client": [
+      {
+        "value": "dev.donutgamble.DonutGamble",
+        "adapter": "kotlin"
+      }
+    ]
+  },
+  "depends": {
+    "fabricloader": ">=0.19.5",
+    "minecraft": "~1.21.11",
+    "java": ">=21",
+    "fabric-api": "*",
+    "fabric-language-kotlin": ">=1.14.1+kotlin.2.4.20"
+  }
+}
