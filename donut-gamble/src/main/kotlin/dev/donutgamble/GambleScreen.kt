@@ -109,14 +109,14 @@ class GambleScreen : Screen(Component.literal("Donut Gamble")) {
 
         addRenderableWidget(Button.builder(Component.literal("Reset rolls")) {
             val self = this
-            minecraft?.setScreen(
+            minecraft.setScreen(
                 ConfirmScreen(
                     BooleanConsumer { yes ->
                         if (yes) {
                             DonutGamble.model.reset()
                             status = Component.literal("All rolls cleared").withStyle(ChatFormatting.GRAY)
                         }
-                        minecraft?.setScreen(self)
+                        minecraft.setScreen(self)
                     },
                     Component.literal("Reset all logged rolls?"),
                     Component.literal("This clears ${DonutGamble.model.rolls.size} rolls and can't be undone."),
