@@ -1,0 +1,1046 @@
+[
+  {
+    "x": 95,
+    "y": 121,
+    "z": 123,
+    "type": "DUNGEON_BREAKER_AURA"
+  },
+  {
+    "x": 95,
+    "y": 121,
+    "z": 122,
+    "type": "DUNGEON_BREAKER_AURA"
+  },
+  {
+    "x": 95,
+    "y": 121,
+    "z": 124,
+    "type": "DUNGEON_BREAKER_AURA"
+  },
+  {
+    "x": 95,
+    "y": 122,
+    "z": 122,
+    "type": "DUNGEON_BREAKER_AURA"
+  },
+  {
+    "x": 95,
+    "y": 122,
+    "z": 124,
+    "type": "DUNGEON_BREAKER_AURA"
+  },
+  {
+    "x": 95,
+    "y": 122,
+    "z": 123,
+    "type": "DUNGEON_BREAKER_AURA"
+  },
+  {
+    "x": 55,
+    "y": 63,
+    "z": 114,
+    "type": "DUNGEON_BREAKER_AURA"
+  },
+  {
+    "x": 55,
+    "y": 63,
+    "z": 115,
+    "type": "DUNGEON_BREAKER_AURA"
+  },
+  {
+    "x": 54,
+    "y": 63,
+    "z": 115,
+    "type": "DUNGEON_BREAKER_AURA"
+  },
+  {
+    "x": 54,
+    "y": 63,
+    "z": 114,
+    "type": "DUNGEON_BREAKER_AURA"
+  },
+  {
+    "x": 53,
+    "y": 63,
+    "z": 114,
+    "type": "DUNGEON_BREAKER_AURA"
+  },
+  {
+    "x": 53,
+    "y": 63,
+    "z": 115,
+    "type": "DUNGEON_BREAKER_AURA"
+  },
+  {
+    "x": 54,
+    "y": 63,
+    "z": 113,
+    "type": "DUNGEON_BREAKER_AURA"
+  },
+  {
+    "x": 53,
+    "y": 63,
+    "z": 113,
+    "type": "DUNGEON_BREAKER_AURA"
+  },
+  {
+    "x": 55,
+    "y": 63,
+    "z": 113,
+    "type": "DUNGEON_BREAKER_AURA"
+  },
+  {
+    "x": 53,
+    "y": 64,
+    "z": 83,
+    "type": "DUNGEON_BREAKER_AURA"
+  },
+  {
+    "x": 54,
+    "y": 64,
+    "z": 83,
+    "type": "DUNGEON_BREAKER_AURA"
+  },
+  {
+    "x": 55,
+    "y": 64,
+    "z": 83,
+    "type": "DUNGEON_BREAKER_AURA"
+  },
+  {
+    "x": 54,
+    "y": 63,
+    "z": 79,
+    "type": "DUNGEON_BREAKER_AURA"
+  },
+  {
+    "x": 54,
+    "y": 63,
+    "z": 80,
+    "type": "DUNGEON_BREAKER_AURA"
+  },
+  {
+    "x": 57,
+    "y": 115,
+    "z": 118,
+    "type": "DUNGEON_BREAKER_AURA"
+  },
+  {
+    "x": 57,
+    "y": 114,
+    "z": 118,
+    "type": "DUNGEON_BREAKER_AURA"
+  },
+  {
+    "x": 57,
+    "y": 115,
+    "z": 119,
+    "type": "DUNGEON_BREAKER_AURA"
+  },
+  {
+    "x": 57,
+    "y": 114,
+    "z": 119,
+    "type": "DUNGEON_BREAKER_AURA"
+  },
+  {
+    "x": 57,
+    "y": 115,
+    "z": 120,
+    "type": "DUNGEON_BREAKER_AURA"
+  },
+  {
+    "x": 57,
+    "y": 114,
+    "z": 120,
+    "type": "DUNGEON_BREAKER_AURA"
+  },
+  {
+    "x": 57,
+    "y": 115,
+    "z": 121,
+    "type": "DUNGEON_BREAKER_AURA"
+  },
+  {
+    "x": 57,
+    "y": 114,
+    "z": 121,
+    "type": "DUNGEON_BREAKER_AURA"
+  },
+  {
+    "x": 54,
+    "y": 63,
+    "z": 78,
+    "type": "DUNGEON_BREAKER_AURA"
+  },
+  {
+    "x": -6,
+    "y": 109,
+    "z": 103,
+    "type": "DUNGEON_BREAKER_AURA"
+  },
+  {
+    "x": -6,
+    "y": 110,
+    "z": 103,
+    "type": "DUNGEON_BREAKER_AURA"
+  },
+  {
+    "x": -2,
+    "y": 119,
+    "z": 91,
+    "type": "DUNGEON_BREAKER_AURA"
+  },
+  {
+    "x": 54,
+    "y": 63,
+    "z": 77,
+    "type": "DUNGEON_BREAKER_AURA"
+  },
+  {
+    "x": 17,
+    "y": 124,
+    "z": 122,
+    "type": "DUNGEON_BREAKER_AURA"
+  },
+  {
+    "x": 91,
+    "y": 6,
+    "z": 55,
+    "type": "DUNGEON_BREAKER_AURA"
+  },
+  {
+    "x": -2,
+    "y": 120,
+    "z": 87,
+    "type": "DUNGEON_BREAKER_AURA"
+  },
+  {
+    "x": -2,
+    "y": 120,
+    "z": 81,
+    "type": "DUNGEON_BREAKER_AURA"
+  },
+  {
+    "x": -2,
+    "y": 120,
+    "z": 82,
+    "type": "DUNGEON_BREAKER_AURA"
+  },
+  {
+    "x": -2,
+    "y": 120,
+    "z": 83,
+    "type": "DUNGEON_BREAKER_AURA"
+  },
+  {
+    "x": -2,
+    "y": 120,
+    "z": 85,
+    "type": "DUNGEON_BREAKER_AURA"
+  },
+  {
+    "x": 20,
+    "y": 124,
+    "z": 122,
+    "type": "DUNGEON_BREAKER_AURA"
+  },
+  {
+    "x": 20,
+    "y": 123,
+    "z": 122,
+    "type": "DUNGEON_BREAKER_AURA"
+  },
+  {
+    "x": 19,
+    "y": 124,
+    "z": 123,
+    "type": "DUNGEON_BREAKER_AURA"
+  },
+  {
+    "x": 19,
+    "y": 123,
+    "z": 123,
+    "type": "DUNGEON_BREAKER_AURA"
+  },
+  {
+    "x": 19,
+    "y": 124,
+    "z": 122,
+    "type": "DUNGEON_BREAKER_AURA"
+  },
+  {
+    "x": 19,
+    "y": 123,
+    "z": 122,
+    "type": "DUNGEON_BREAKER_AURA"
+  },
+  {
+    "x": 18,
+    "y": 124,
+    "z": 123,
+    "type": "DUNGEON_BREAKER_AURA"
+  },
+  {
+    "x": 18,
+    "y": 123,
+    "z": 123,
+    "type": "DUNGEON_BREAKER_AURA"
+  },
+  {
+    "x": 18,
+    "y": 124,
+    "z": 122,
+    "type": "DUNGEON_BREAKER_AURA"
+  },
+  {
+    "x": 18,
+    "y": 123,
+    "z": 122,
+    "type": "DUNGEON_BREAKER_AURA"
+  },
+  {
+    "x": 17,
+    "y": 123,
+    "z": 122,
+    "type": "DUNGEON_BREAKER_AURA"
+  },
+  {
+    "x": 18,
+    "y": 124,
+    "z": 121,
+    "type": "DUNGEON_BREAKER_AURA"
+  },
+  {
+    "x": 18,
+    "y": 123,
+    "z": 121,
+    "type": "DUNGEON_BREAKER_AURA"
+  },
+  {
+    "x": 17,
+    "y": 124,
+    "z": 121,
+    "type": "DUNGEON_BREAKER_AURA"
+  },
+  {
+    "x": 17,
+    "y": 123,
+    "z": 121,
+    "type": "DUNGEON_BREAKER_AURA"
+  },
+  {
+    "x": 16,
+    "y": 124,
+    "z": 121,
+    "type": "DUNGEON_BREAKER_AURA"
+  },
+  {
+    "x": 16,
+    "y": 123,
+    "z": 121,
+    "type": "DUNGEON_BREAKER_AURA"
+  },
+  {
+    "x": 50,
+    "y": 163,
+    "z": 138,
+    "type": "DUNGEON_BREAKER_AURA"
+  },
+  {
+    "x": 49,
+    "y": 163,
+    "z": 138,
+    "type": "DUNGEON_BREAKER_AURA"
+  },
+  {
+    "x": 48,
+    "y": 163,
+    "z": 138,
+    "type": "DUNGEON_BREAKER_AURA"
+  },
+  {
+    "x": 47,
+    "y": 163,
+    "z": 138,
+    "type": "DUNGEON_BREAKER_AURA"
+  },
+  {
+    "x": 49,
+    "y": 162,
+    "z": 138,
+    "type": "DUNGEON_BREAKER_AURA"
+  },
+  {
+    "x": 48,
+    "y": 162,
+    "z": 138,
+    "type": "DUNGEON_BREAKER_AURA"
+  },
+  {
+    "x": 47,
+    "y": 162,
+    "z": 138,
+    "type": "DUNGEON_BREAKER_AURA"
+  },
+  {
+    "x": 46,
+    "y": 163,
+    "z": 138,
+    "type": "DUNGEON_BREAKER_AURA"
+  },
+  {
+    "x": 46,
+    "y": 162,
+    "z": 138,
+    "type": "DUNGEON_BREAKER_AURA"
+  },
+  {
+    "x": 45,
+    "y": 162,
+    "z": 138,
+    "type": "DUNGEON_BREAKER_AURA"
+  },
+  {
+    "x": 44,
+    "y": 162,
+    "z": 138,
+    "type": "DUNGEON_BREAKER_AURA"
+  },
+  {
+    "x": 43,
+    "y": 162,
+    "z": 138,
+    "type": "DUNGEON_BREAKER_AURA"
+  },
+  {
+    "x": 42,
+    "y": 162,
+    "z": 138,
+    "type": "DUNGEON_BREAKER_AURA"
+  },
+  {
+    "x": 42,
+    "y": 163,
+    "z": 138,
+    "type": "DUNGEON_BREAKER_AURA"
+  },
+  {
+    "x": 43,
+    "y": 163,
+    "z": 138,
+    "type": "DUNGEON_BREAKER_AURA"
+  },
+  {
+    "x": 44,
+    "y": 163,
+    "z": 138,
+    "type": "DUNGEON_BREAKER_AURA"
+  },
+  {
+    "x": 45,
+    "y": 163,
+    "z": 138,
+    "type": "DUNGEON_BREAKER_AURA"
+  },
+  {
+    "x": 50,
+    "y": 162,
+    "z": 138,
+    "type": "DUNGEON_BREAKER_AURA"
+  },
+  {
+    "x": 51,
+    "y": 162,
+    "z": 138,
+    "type": "DUNGEON_BREAKER_AURA"
+  },
+  {
+    "x": 51,
+    "y": 163,
+    "z": 138,
+    "type": "DUNGEON_BREAKER_AURA"
+  },
+  {
+    "x": 51,
+    "y": 161,
+    "z": 138,
+    "type": "DUNGEON_BREAKER_AURA"
+  },
+  {
+    "x": 51,
+    "y": 160,
+    "z": 138,
+    "type": "DUNGEON_BREAKER_AURA"
+  },
+  {
+    "x": 51,
+    "y": 159,
+    "z": 138,
+    "type": "DUNGEON_BREAKER_AURA"
+  },
+  {
+    "x": 51,
+    "y": 158,
+    "z": 138,
+    "type": "DUNGEON_BREAKER_AURA"
+  },
+  {
+    "x": 51,
+    "y": 157,
+    "z": 138,
+    "type": "DUNGEON_BREAKER_AURA"
+  },
+  {
+    "x": 51,
+    "y": 156,
+    "z": 138,
+    "type": "DUNGEON_BREAKER_AURA"
+  },
+  {
+    "x": 51,
+    "y": 155,
+    "z": 138,
+    "type": "DUNGEON_BREAKER_AURA"
+  },
+  {
+    "x": 51,
+    "y": 154,
+    "z": 138,
+    "type": "DUNGEON_BREAKER_AURA"
+  },
+  {
+    "x": 51,
+    "y": 153,
+    "z": 138,
+    "type": "DUNGEON_BREAKER_AURA"
+  },
+  {
+    "x": 51,
+    "y": 152,
+    "z": 138,
+    "type": "DUNGEON_BREAKER_AURA"
+  },
+  {
+    "x": 51,
+    "y": 151,
+    "z": 138,
+    "type": "DUNGEON_BREAKER_AURA"
+  },
+  {
+    "x": 51,
+    "y": 150,
+    "z": 138,
+    "type": "DUNGEON_BREAKER_AURA"
+  },
+  {
+    "x": 51,
+    "y": 149,
+    "z": 138,
+    "type": "DUNGEON_BREAKER_AURA"
+  },
+  {
+    "x": 51,
+    "y": 148,
+    "z": 138,
+    "type": "DUNGEON_BREAKER_AURA"
+  },
+  {
+    "x": 51,
+    "y": 147,
+    "z": 138,
+    "type": "DUNGEON_BREAKER_AURA"
+  },
+  {
+    "x": 51,
+    "y": 146,
+    "z": 138,
+    "type": "DUNGEON_BREAKER_AURA"
+  },
+  {
+    "x": 51,
+    "y": 145,
+    "z": 138,
+    "type": "DUNGEON_BREAKER_AURA"
+  },
+  {
+    "x": 2,
+    "y": 108,
+    "z": 107,
+    "type": "DUNGEON_BREAKER_AURA"
+  },
+  {
+    "x": 36,
+    "y": 172,
+    "z": 107,
+    "type": "DUNGEON_BREAKER_AURA"
+  },
+  {
+    "x": 36,
+    "y": 171,
+    "z": 107,
+    "type": "DUNGEON_BREAKER_AURA"
+  },
+  {
+    "x": 36,
+    "y": 171,
+    "z": 108,
+    "type": "DUNGEON_BREAKER_AURA"
+  },
+  {
+    "x": 36,
+    "y": 172,
+    "z": 108,
+    "type": "DUNGEON_BREAKER_AURA"
+  },
+  {
+    "x": 36,
+    "y": 172,
+    "z": 109,
+    "type": "DUNGEON_BREAKER_AURA"
+  },
+  {
+    "x": 36,
+    "y": 171,
+    "z": 109,
+    "type": "DUNGEON_BREAKER_AURA"
+  },
+  {
+    "x": 36,
+    "y": 171,
+    "z": 110,
+    "type": "DUNGEON_BREAKER_AURA"
+  },
+  {
+    "x": 36,
+    "y": 172,
+    "z": 110,
+    "type": "DUNGEON_BREAKER_AURA"
+  },
+  {
+    "x": 36,
+    "y": 172,
+    "z": 111,
+    "type": "DUNGEON_BREAKER_AURA"
+  },
+  {
+    "x": 36,
+    "y": 171,
+    "z": 111,
+    "type": "DUNGEON_BREAKER_AURA"
+  },
+  {
+    "x": 36,
+    "y": 171,
+    "z": 112,
+    "type": "DUNGEON_BREAKER_AURA"
+  },
+  {
+    "x": 36,
+    "y": 172,
+    "z": 112,
+    "type": "DUNGEON_BREAKER_AURA"
+  },
+  {
+    "x": 36,
+    "y": 172,
+    "z": 113,
+    "type": "DUNGEON_BREAKER_AURA"
+  },
+  {
+    "x": 36,
+    "y": 171,
+    "z": 113,
+    "type": "DUNGEON_BREAKER_AURA"
+  },
+  {
+    "x": 36,
+    "y": 171,
+    "z": 114,
+    "type": "DUNGEON_BREAKER_AURA"
+  },
+  {
+    "x": 36,
+    "y": 172,
+    "z": 114,
+    "type": "DUNGEON_BREAKER_AURA"
+  },
+  {
+    "x": 36,
+    "y": 172,
+    "z": 115,
+    "type": "DUNGEON_BREAKER_AURA"
+  },
+  {
+    "x": 36,
+    "y": 171,
+    "z": 115,
+    "type": "DUNGEON_BREAKER_AURA"
+  },
+  {
+    "x": 54,
+    "y": 116,
+    "z": 54,
+    "type": "DUNGEON_BREAKER_AURA"
+  },
+  {
+    "x": 54,
+    "y": 115,
+    "z": 54,
+    "type": "DUNGEON_BREAKER_AURA"
+  },
+  {
+    "x": 55,
+    "y": 116,
+    "z": 54,
+    "type": "DUNGEON_BREAKER_AURA"
+  },
+  {
+    "x": 55,
+    "y": 115,
+    "z": 54,
+    "type": "DUNGEON_BREAKER_AURA"
+  },
+  {
+    "x": 33,
+    "y": 125,
+    "z": 127,
+    "type": "DUNGEON_BREAKER_AURA"
+  },
+  {
+    "x": 50,
+    "y": 64,
+    "z": 76,
+    "type": "DUNGEON_BREAKER_AURA"
+  },
+  {
+    "x": 51,
+    "y": 64,
+    "z": 76,
+    "type": "DUNGEON_BREAKER_AURA"
+  },
+  {
+    "x": 51,
+    "y": 63,
+    "z": 76,
+    "type": "DUNGEON_BREAKER_AURA"
+  },
+  {
+    "x": 50,
+    "y": 63,
+    "z": 76,
+    "type": "DUNGEON_BREAKER_AURA"
+  },
+  {
+    "x": 52,
+    "y": 64,
+    "z": 76,
+    "type": "DUNGEON_BREAKER_AURA"
+  },
+  {
+    "x": 52,
+    "y": 63,
+    "z": 76,
+    "type": "DUNGEON_BREAKER_AURA"
+  },
+  {
+    "x": 54,
+    "y": 113,
+    "z": 68,
+    "type": "DUNGEON_BREAKER_AURA"
+  },
+  {
+    "x": 54,
+    "y": 112,
+    "z": 68,
+    "type": "DUNGEON_BREAKER_AURA"
+  },
+  {
+    "x": 54,
+    "y": 111,
+    "z": 68,
+    "type": "DUNGEON_BREAKER_AURA"
+  },
+  {
+    "x": 54,
+    "y": 110,
+    "z": 68,
+    "type": "DUNGEON_BREAKER_AURA"
+  },
+  {
+    "x": 54,
+    "y": 109,
+    "z": 68,
+    "type": "DUNGEON_BREAKER_AURA"
+  },
+  {
+    "x": 54,
+    "y": 108,
+    "z": 68,
+    "type": "DUNGEON_BREAKER_AURA"
+  },
+  {
+    "x": 54,
+    "y": 107,
+    "z": 68,
+    "type": "DUNGEON_BREAKER_AURA"
+  },
+  {
+    "x": 54,
+    "y": 106,
+    "z": 68,
+    "type": "DUNGEON_BREAKER_AURA"
+  },
+  {
+    "x": 54,
+    "y": 105,
+    "z": 68,
+    "type": "DUNGEON_BREAKER_AURA"
+  },
+  {
+    "x": 54,
+    "y": 104,
+    "z": 68,
+    "type": "DUNGEON_BREAKER_AURA"
+  },
+  {
+    "x": 54,
+    "y": 103,
+    "z": 68,
+    "type": "DUNGEON_BREAKER_AURA"
+  },
+  {
+    "x": 54,
+    "y": 102,
+    "z": 68,
+    "type": "DUNGEON_BREAKER_AURA"
+  },
+  {
+    "x": 54,
+    "y": 101,
+    "z": 68,
+    "type": "DUNGEON_BREAKER_AURA"
+  },
+  {
+    "x": 54,
+    "y": 100,
+    "z": 68,
+    "type": "DUNGEON_BREAKER_AURA"
+  },
+  {
+    "x": 54,
+    "y": 99,
+    "z": 68,
+    "type": "DUNGEON_BREAKER_AURA"
+  },
+  {
+    "x": 54,
+    "y": 98,
+    "z": 68,
+    "type": "DUNGEON_BREAKER_AURA"
+  },
+  {
+    "x": 58,
+    "y": 108,
+    "z": 130,
+    "type": "DUNGEON_BREAKER_AURA"
+  },
+  {
+    "x": 57,
+    "y": 108,
+    "z": 130,
+    "type": "DUNGEON_BREAKER_AURA"
+  },
+  {
+    "x": 55,
+    "y": 133,
+    "z": 140,
+    "type": "DUNGEON_BREAKER_AURA"
+  },
+  {
+    "x": 55,
+    "y": 132,
+    "z": 140,
+    "type": "DUNGEON_BREAKER_AURA"
+  },
+  {
+    "x": 55,
+    "y": 133,
+    "z": 141,
+    "type": "DUNGEON_BREAKER_AURA"
+  },
+  {
+    "x": 55,
+    "y": 132,
+    "z": 141,
+    "type": "DUNGEON_BREAKER_AURA"
+  },
+  {
+    "x": 54,
+    "y": 133,
+    "z": 141,
+    "type": "DUNGEON_BREAKER_AURA"
+  },
+  {
+    "x": 54,
+    "y": 132,
+    "z": 141,
+    "type": "DUNGEON_BREAKER_AURA"
+  },
+  {
+    "x": 53,
+    "y": 132,
+    "z": 141,
+    "type": "DUNGEON_BREAKER_AURA"
+  },
+  {
+    "x": 53,
+    "y": 133,
+    "z": 141,
+    "type": "DUNGEON_BREAKER_AURA"
+  },
+  {
+    "x": 15,
+    "y": 123,
+    "z": 121,
+    "type": "DUNGEON_BREAKER_AURA"
+  },
+  {
+    "x": 15,
+    "y": 124,
+    "z": 121,
+    "type": "DUNGEON_BREAKER_AURA"
+  },
+  {
+    "x": -2,
+    "y": 121,
+    "z": 90,
+    "type": "DUNGEON_BREAKER_AURA"
+  },
+  {
+    "x": -2,
+    "y": 121,
+    "z": 91,
+    "type": "DUNGEON_BREAKER_AURA"
+  },
+  {
+    "x": -2,
+    "y": 121,
+    "z": 87,
+    "type": "DUNGEON_BREAKER_AURA"
+  },
+  {
+    "x": -2,
+    "y": 122,
+    "z": 90,
+    "type": "DUNGEON_BREAKER_AURA"
+  },
+  {
+    "x": -2,
+    "y": 122,
+    "z": 87,
+    "type": "DUNGEON_BREAKER_AURA"
+  },
+  {
+    "x": -2,
+    "y": 121,
+    "z": 86,
+    "type": "DUNGEON_BREAKER_AURA"
+  },
+  {
+    "x": -2,
+    "y": 120,
+    "z": 86,
+    "type": "DUNGEON_BREAKER_AURA"
+  },
+  {
+    "x": -2,
+    "y": 121,
+    "z": 85,
+    "type": "DUNGEON_BREAKER_AURA"
+  },
+  {
+    "x": -2,
+    "y": 120,
+    "z": 84,
+    "type": "DUNGEON_BREAKER_AURA"
+  },
+  {
+    "x": -2,
+    "y": 121,
+    "z": 81,
+    "type": "DUNGEON_BREAKER_AURA"
+  },
+  {
+    "x": -2,
+    "y": 121,
+    "z": 82,
+    "type": "DUNGEON_BREAKER_AURA"
+  },
+  {
+    "x": -2,
+    "y": 121,
+    "z": 83,
+    "type": "DUNGEON_BREAKER_AURA"
+  },
+  {
+    "x": -2,
+    "y": 121,
+    "z": 84,
+    "type": "DUNGEON_BREAKER_AURA"
+  },
+  {
+    "x": -2,
+    "y": 122,
+    "z": 86,
+    "type": "DUNGEON_BREAKER_AURA"
+  },
+  {
+    "x": 17,
+    "y": 116,
+    "z": 64,
+    "type": "DUNGEON_BREAKER_AURA"
+  },
+  {
+    "x": 17,
+    "y": 117,
+    "z": 64,
+    "type": "DUNGEON_BREAKER_AURA"
+  },
+  {
+    "x": 17,
+    "y": 118,
+    "z": 64,
+    "type": "DUNGEON_BREAKER_AURA"
+  },
+  {
+    "x": 17,
+    "y": 117,
+    "z": 63,
+    "type": "DUNGEON_BREAKER_AURA"
+  },
+  {
+    "x": 17,
+    "y": 116,
+    "z": 63,
+    "type": "DUNGEON_BREAKER_AURA"
+  },
+  {
+    "x": 13,
+    "y": 118,
+    "z": 56,
+    "type": "DUNGEON_BREAKER_AURA"
+  },
+  {
+    "x": 14,
+    "y": 118,
+    "z": 56,
+    "type": "DUNGEON_BREAKER_AURA"
+  },
+  {
+    "x": 13,
+    "y": 118,
+    "z": 55,
+    "type": "DUNGEON_BREAKER_AURA"
+  }
+]
