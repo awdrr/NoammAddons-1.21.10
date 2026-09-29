@@ -21,12 +21,20 @@ Route node mapping (source box -> ring):
 Rings on the same box are ordered stop, align, look, walk, jump, and exact
 duplicates (e.g. ALIGN + FAST_ALIGN on one box) are merged.
 
-Walk yaws: the old client drifted through turns, so its walk yaws overshoot
-each turn to compensate. The new client walks exactly where the yaw points, so
-every walk ring is re-aimed straight at the next spot on the route: the
-nearest walk/stop/align ring within 30 degrees of the old yaw (a dropped node
-such as a BOOM box is used only when no ring is ahead). Walk rings with
-nothing ahead keep their yaw. Pass --keep-yaw to skip this.
+Walk rings: the old client kept drifting forward after a walk ring before it
+turned, so the real turn happened 1-3 blocks past the ring. The new client
+turns at the ring centre, so turning walk rings are moved forward to where the
+old client really turned and keep their old yaw. The turn point is where the
+incoming path meets the line through the next spot along the old yaw. The next
+spot is the nearest walk/stop/align ring within 30 degrees of the old yaw (a
+dropped node such as a BOOM box is used only when no ring is ahead).
+
+Walk rings you start from standing still (a stop/align on the same spot),
+turns under 15 degrees, and turns that don't fit the drift pattern stay in
+place and aim straight at the next spot. Walk rings with nothing ahead are
+left alone. Jump rings within a block of the new path are moved onto it, so
+you pass through their centre. Pass --keep-yaw to keep every walk and jump
+ring as it was.
 """
 import argparse
 import json
@@ -40,6 +48,8 @@ AIM_TYPES = ("walk", "stop", "align")
 AIM_CONE = 30.0
 AIM_DISTANCE = (0.75, 40.0)
 AIM_HEIGHT_CHANGE = (-50.0, 5.0)
+TURN_MIN = 15.0
+DRIFT_RANGE = (-0.5, 4.0)
 
 
 def num(v):
@@ -144,19 +154,106 @@ def find_target(walk, candidates):
     return best[1] if best else None
 
 
+def direction(yaw):
+    a = math.radians(yaw)
+    return -math.sin(a), math.cos(a)
+
+
+def spot(ring):
+    return ring["x"], ring["y"], ring["z"]
+
+
+def old_turn_point(ring, yaw_in, target):
+    """Where the incoming line (through the ring centre along yaw_in) meets the
+    line through the target along the ring's old yaw, as blocks past the ring."""
+    din, dout = direction(yaw_in), direction(ring["yaw"])
+    det = din[0] * dout[1] - din[1] * dout[0]
+    if abs(det) < 1e-9:
+        return None
+    dx, dz = target["x"] - ring["x"], target["z"] - ring["z"]
+    past = (dx * dout[1] - dz * dout[0]) / det
+    left = (din[0] * dz - din[1] * dx) / det
+    if not DRIFT_RANGE[0] <= past <= DRIFT_RANGE[1] or left < 0.5:
+        return None
+    return past
+
+
 def aim_walks(rings, dropped):
-    targets = [r for r in rings if r["type"] in AIM_TYPES]
+    targets = [dict(r) for r in rings if r["type"] in AIM_TYPES]
     fallback = [base_ring(node["type"], node) for node in dropped]
-    changes = []
-    for ring in rings:
-        if ring["type"] != "walk":
+    walks = [r for r in rings if r["type"] == "walk"]
+    original = {id(w): dict(w) for w in walks}
+    target = {id(w): find_target(w, targets) or find_target(w, fallback) for w in walks}
+    standing = {spot(r) for r in rings if r["type"] in ("stop", "align")}
+    feeders = {}
+    for w in walks:
+        if target[id(w)]:
+            feeders.setdefault(spot(target[id(w)]), []).append(w)
+
+    new_yaw, changes = {}, []
+
+    def resolve(ring, visiting):
+        if id(ring) in new_yaw:
+            return new_yaw[id(ring)]
+        old, dest = original[id(ring)], target[id(ring)]
+        if not dest:
+            new_yaw[id(ring)] = old["yaw"]
+            changes.append((old, ring, None, None))
+            return old["yaw"]
+
+        feeder = feeders.get(spot(old), [])
+        past = None
+        if spot(old) not in standing and len(feeder) == 1 and id(feeder[0]) not in visiting:
+            yaw_in = resolve(feeder[0], visiting | {id(ring)})
+            if abs(angle_diff(old["yaw"], yaw_in)) >= TURN_MIN:
+                past = old_turn_point(old, yaw_in, dest)
+
+        if past is not None and abs(past) > 0.1:
+            din = direction(yaw_in)
+            ring["x"] = num(round(old["x"] + past * din[0], 3))
+            ring["z"] = num(round(old["z"] + past * din[1], 3))
+            if dest["y"] < old["y"]:
+                ring["y"], ring["height"] = num(old["y"] - 1), num(old["height"] + 1)
+            elif dest["y"] > old["y"]:
+                ring["height"] = num(old["height"] + 1)
+        ring["yaw"] = num(round(bearing(ring, dest), 2))
+        new_yaw[id(ring)] = ring["yaw"]
+        changes.append((old, ring, dest, past if past is not None and abs(past) > 0.1 else None))
+        return ring["yaw"]
+
+    for w in walks:
+        resolve(w, frozenset())
+
+    by_spot = {}
+    for w in walks:
+        by_spot.setdefault(spot(original[id(w)]), []).append(w)
+    path = []
+    for w in walks:
+        dest = target[id(w)]
+        if not dest:
             continue
-        old = ring["yaw"]
-        target = find_target(ring, targets) or find_target(ring, fallback)
-        if target:
-            ring["yaw"] = num(round(bearing(ring, target), 2))
-        changes.append((ring, old, target))
-    return changes
+        d = direction(w["yaw"])
+        length = max((e["x"] - w["x"]) * d[0] + (e["z"] - w["z"]) * d[1] for e in [dest] + by_spot.get(spot(dest), []))
+        path.append((w, d, length, min(w["y"], dest["y"]) - 1, max(w["y"], dest["y"]) + 1))
+
+    snapped = []
+    for ring in rings:
+        if ring["type"] != "jump":
+            continue
+        best = None
+        for w, d, length, low, high in path:
+            if not low <= ring["y"] <= high:
+                continue
+            along = min(max((ring["x"] - w["x"]) * d[0] + (ring["z"] - w["z"]) * d[1], 0), length)
+            px, pz = w["x"] + along * d[0], w["z"] + along * d[1]
+            off = math.hypot(ring["x"] - px, ring["z"] - pz)
+            if best is None or off < best[0]:
+                best = (off, px, pz)
+        if best and 0.05 < best[0] <= 1.0:
+            old = dict(ring)
+            ring["x"], ring["z"] = num(round(best[1], 3)), num(round(best[2], 3))
+            snapped.append((old, ring, best[0]))
+    return changes, snapped
 
 
 def where(ring):
@@ -180,14 +277,14 @@ def main():
     parser.add_argument("breaker", type=Path)
     parser.add_argument("out_dir", type=Path)
     parser.add_argument("--id", help="route id / output name (default: route file name)")
-    parser.add_argument("--keep-yaw", action="store_true", help="keep the old walk yaws instead of re-aiming them")
+    parser.add_argument("--keep-yaw", action="store_true", help="keep the old walk rings instead of moving/re-aiming them")
     args = parser.parse_args()
     route_path, breaker_path, out_dir = args.route, args.breaker, args.out_dir
     route_id = args.id or route_path.stem
 
     route, dropped, unknown = convert_route(json.loads(route_path.read_text()), route_id)
     breaker = convert_breaker(json.loads(breaker_path.read_text()))
-    aimed = [] if args.keep_yaw else aim_walks(route["rings"], dropped)
+    aimed, snapped = ([], []) if args.keep_yaw else aim_walks(route["rings"], dropped)
 
     out_dir.mkdir(parents=True, exist_ok=True)
     (out_dir / f"{route_id}.json").write_text(json.dumps(route, indent=2) + "\n")
@@ -196,14 +293,19 @@ def main():
     print(f"{route_id}.json: {len(route['rings'])} rings")
     print(f"{route_id}breaker.json: {len(breaker)} blocks")
     if aimed:
-        print("\nWalk yaws re-aimed (old -> new, towards):")
-        for ring, old, target in aimed:
-            if target:
-                print(f"  {where(ring):<22} {old:8.2f} -> {ring['yaw']:8.2f} ({angle_diff(ring['yaw'], old):+6.2f})"
-                      f"  {target['type']} {where(target)}")
-        for ring, old, target in aimed:
-            if not target:
-                print(f"  {where(ring):<22} {old:8.2f}    unchanged, nothing ahead")
+        print("\nWalk rings (old yaw -> new yaw):")
+        for old, ring, dest, past in aimed:
+            if not dest:
+                print(f"  {where(old):<22} {old['yaw']:8.2f}    unchanged, nothing ahead")
+            elif past is not None:
+                print(f"  {where(old):<22} {old['yaw']:8.2f} -> {ring['yaw']:8.2f}  moved {past:.2f} blocks on to "
+                      f"{where(ring)}, towards {dest['type']} {where(dest)}")
+            else:
+                print(f"  {where(old):<22} {old['yaw']:8.2f} -> {ring['yaw']:8.2f}  aimed at {dest['type']} {where(dest)}")
+    if snapped:
+        print("\nJump rings moved onto the path:")
+        for old, ring, off in snapped:
+            print(f"  {where(old):<22} -> {where(ring)}  ({off:.2f} blocks)")
     for title, nodes in (("Dropped (no ring equivalent)", dropped), ("Unknown node types (skipped)", unknown)):
         if nodes:
             print(f"\n{title}:")
