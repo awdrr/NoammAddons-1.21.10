@@ -35,7 +35,7 @@ object MacroConfig {
 
         props.getProperty("reach")?.toDoubleOrNull()?.let { reach = it.coerceIn(3.0, 5.5) }
         props.getProperty("clickDelay")?.toIntOrNull()?.let { clickDelay = it.coerceIn(0, 10) }
-        props.getProperty("rotationTime")?.toIntOrNull()?.let { rotationTime = it.coerceIn(0, 500) }
+        props.getProperty("rotationTime")?.toIntOrNull()?.let { rotationTime = it.coerceIn(0, 3000) }
         props.getProperty("restockDelay")?.toIntOrNull()?.let { restockDelay = it.coerceIn(10, 600) }
         props.getProperty("stringCommand")?.removePrefix("/")?.trim()?.takeIf { it.isNotEmpty() }?.let { stringCommand = it }
         props.getProperty("craftAtFreeSlots")?.toIntOrNull()?.let { craftAtFreeSlots = it.coerceIn(0, 36) }

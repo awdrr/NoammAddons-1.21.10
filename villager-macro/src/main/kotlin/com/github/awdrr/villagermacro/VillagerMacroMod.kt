@@ -13,6 +13,7 @@ import net.fabricmc.fabric.api.client.command.v2.FabricClientCommandSource
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents
 import net.fabricmc.fabric.api.client.keybinding.v1.KeyBindingHelper
 import net.fabricmc.fabric.api.client.networking.v1.ClientPlayConnectionEvents
+import net.fabricmc.fabric.api.client.rendering.v1.world.WorldRenderEvents
 import net.minecraft.client.KeyMapping
 import net.minecraft.client.Minecraft
 import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen
@@ -36,6 +37,8 @@ object VillagerMacroMod: ClientModInitializer {
         }
 
         ClientPlayConnectionEvents.DISCONNECT.register { _, _ -> TradeMacro.stop(null) }
+        // Turning is updated every frame too, so slow turns are smooth instead of moving 20 times a second.
+        WorldRenderEvents.END_MAIN.register { TradeMacro.onFrame() }
 
         ClientCommandRegistrationCallback.EVENT.register { dispatcher, _ ->
             dispatcher.register(
@@ -52,7 +55,7 @@ object VillagerMacroMod: ClientModInitializer {
                         MacroConfig.clickDelay = IntegerArgumentType.getInteger(it, "ticks")
                         saved(it)
                     }))
-                    .then(literal("rotation").then(argument("ms", IntegerArgumentType.integer(0, 500)).executes {
+                    .then(literal("rotation").then(argument("ms", IntegerArgumentType.integer(0, 3000)).executes {
                         MacroConfig.rotationTime = IntegerArgumentType.getInteger(it, "ms")
                         saved(it)
                     }))
