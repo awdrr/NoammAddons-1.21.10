@@ -70,7 +70,7 @@ object TradeMacro {
     private const val MIN_STRING_INTERVAL_MS = 2_000L
     private const val MAX_STRING_FAILS = 10
 
-    private const val RECIPE_TIMEOUT = 20
+    private const val SERVER_TIMEOUT = 40
     private const val MIN_RECIPE_INTERVAL_MS = 250L
 
     private const val PAYMENT_SLOT = 0
@@ -117,7 +117,9 @@ object TradeMacro {
     private var craftStalls = 0
     private var useRecipeBook = true
     private var recipePending = false
-    private var recipePlacedAt = 0
+    private var serverSyncId = - 1
+    private var serverSyncAt = 0
+    private var settledAfter = - 1
     private var lastRecipePlace = 0L
 
     private var tradesDone = 0
@@ -213,6 +215,8 @@ object TradeMacro {
         interactSent = false
         openAttempts = 0
         rotation = null
+        serverSyncId = - 1
+        settledAfter = - 1
     }
 
     private fun findNextAction() {
@@ -412,6 +416,7 @@ object TradeMacro {
 
     private fun craft() {
         val menu = mc.player !!.containerMenu as? CraftingMenu ?: return setState(State.OPEN_CRAFTING, MacroConfig.clickDelay)
+        if (waitingForServer(menu)) return
 
         val carried = menu.carried
         if (! carried.isEmpty) return placeCarried(menu, carried)
@@ -421,25 +426,43 @@ object TradeMacro {
     }
 
     /**
+     * The client can't predict crafting: after a recipe book fill or a shift-clicked output it only guesses
+     * (one craft), and the real grid comes from the server a moment later. Acting on the guess mixes up the grid,
+     * so after those two actions wait for the server's answer, plus a tick for the whole update to land.
+     */
+    private fun waitingForServer(menu: CraftingMenu): Boolean {
+        if (serverSyncId >= 0) {
+            if (menu.stateId == serverSyncId && stateTicks - serverSyncAt <= SERVER_TIMEOUT) return true
+            serverSyncId = - 1
+            settledAfter = stateTicks
+        }
+        return stateTicks <= settledAfter
+    }
+
+    /** Call right before the action, so any change after it counts as the server's answer. */
+    private fun awaitServer(menu: CraftingMenu) {
+        serverSyncId = menu.stateId
+        serverSyncAt = stateTicks
+    }
+
+    /**
      * Same as a player using the recipe book: shift click the emerald block recipe (fills the grid with as many
      * emeralds as fit, up to a stack per slot), then shift click the output. Two actions per 64 blocks.
      */
     private fun craftWithRecipeBook(menu: CraftingMenu) {
         val inGrid = CRAFT_GRID_SLOTS.sumOf { menu.getSlot(it).item.count }
-
-        if (inGrid > 0 && isPlain(menu.getSlot(CRAFT_RESULT_SLOT).item, Items.EMERALD_BLOCK)) {
-            recipePending = false
-            return craftResult(countItem(Items.EMERALD) + inGrid)
-        }
+        val hasResult = isPlain(menu.getSlot(CRAFT_RESULT_SLOT).item, Items.EMERALD_BLOCK)
 
         if (recipePending) {
-            // Wait for the server to fill the grid, fall back to crafting by hand if it never does.
-            if (stateTicks - recipePlacedAt > RECIPE_TIMEOUT) {
-                recipePending = false
+            recipePending = false
+            // The server answered (or never did) without filling the grid, so the recipe book won't work here.
+            if (! hasResult) {
                 useRecipeBook = false
+                return
             }
-            return
         }
+
+        if (inGrid > 0 && hasResult) return craftResult(menu, countItem(Items.EMERALD) + inGrid)
 
         // Something in the grid the recipe book didn't put there, crafting by hand sorts it out.
         if (inGrid > 0) {
@@ -457,10 +480,10 @@ object TradeMacro {
         // Servers rate limit recipe book clicks (Paper allows 5 a second).
         val now = System.currentTimeMillis()
         if (now - lastRecipePlace < MIN_RECIPE_INTERVAL_MS) return
+        awaitServer(menu)
         mc.gameMode?.handlePlaceRecipe(menu.containerId, recipe, true)
         lastRecipePlace = now
         recipePending = true
-        recipePlacedAt = stateTicks
     }
 
     /** The emerald block recipe from the recipe book, if it's unlocked (it is once you've had an emerald). */
@@ -471,10 +494,11 @@ object TradeMacro {
             ?.id()
     }
 
-    private fun craftResult(total: Int) {
+    private fun craftResult(menu: CraftingMenu, total: Int) {
         if (total != lastCraftTotal) craftStalls = 0
         else if (++ craftStalls >= MAX_STALLS) return stop("§cCouldn't craft emerald blocks, is your inventory full?", closeMenu = true)
         lastCraftTotal = total
+        awaitServer(menu)
         click(CRAFT_RESULT_SLOT, 0, ClickType.QUICK_MOVE)
     }
 
@@ -498,7 +522,7 @@ object TradeMacro {
         }
 
         val gridSlot = CRAFT_GRID_SLOTS.firstOrNull { menu.getSlot(it).item.count < perSlot }
-        if (gridSlot == null) return craftResult(total)
+        if (gridSlot == null) return craftResult(menu, total)
 
         val need = perSlot - menu.getSlot(gridSlot).item.count
         val source = sources.firstOrNull { menu.getSlot(it).item.count == need }
