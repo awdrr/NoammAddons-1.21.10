@@ -1,0 +1,25 @@
+{
+  "schemaVersion": 1,
+  "id": "villagermacro",
+  "version": "${version}",
+  "name": "Villager Trade Macro",
+  "description": "Trades string to villagers for emeralds, crafts the emeralds into emerald blocks and stores them in a nearby chest.",
+  "authors": ["awdrr"],
+  "license": "CC0-1.0",
+  "environment": "client",
+  "entrypoints": {
+    "client": [
+      {
+        "value": "com.github.awdrr.villagermacro.VillagerMacroMod",
+        "adapter": "kotlin"
+      }
+    ]
+  },
+  "depends": {
+    "fabricloader": ">=0.17.0",
+    "minecraft": "1.21.11",
+    "java": ">=21",
+    "fabric-api": "*",
+    "fabric-language-kotlin": "*"
+  }
+}

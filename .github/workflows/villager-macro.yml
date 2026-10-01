@@ -1,0 +1,30 @@
+# Builds the standalone Villager Trade Macro mod (Minecraft 1.21.11) in villager-macro/.
+
+name: villager-macro
+on:
+  push:
+    paths:
+      - 'villager-macro/**'
+      - '.github/workflows/villager-macro.yml'
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    steps:
+      - name: checkout repository
+        uses: actions/checkout@v4
+      - name: setup jdk
+        uses: actions/setup-java@v4
+        with:
+          java-version: '21'
+          distribution: 'microsoft'
+      - name: make gradle wrapper executable
+        run: chmod +x ./gradlew
+      - name: build
+        run: ./gradlew -p villager-macro build
+      - name: capture build artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: VillagerTradeMacro-1.21.11
+          path: villager-macro/build/libs/
