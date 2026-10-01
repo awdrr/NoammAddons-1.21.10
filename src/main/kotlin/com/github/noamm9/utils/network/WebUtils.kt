@@ -46,11 +46,12 @@ object WebUtils {
         }
     }
 
-    suspend fun post(url: String, body: Any): Result<String> = withContext(networkDispatcher) {
+    suspend fun post(url: String, body: Any, headers: Map<String, String> = emptyMap()): Result<String> = withContext(networkDispatcher) {
         runCatching {
             val connection = prepareConnection(url)
             connection.requestMethod = "POST"
             connection.setRequestProperty("Content-Type", "application/json; charset=UTF-8")
+            headers.forEach(connection::setRequestProperty)
             connection.doOutput = true
 
             connection.outputStream.use { os ->
