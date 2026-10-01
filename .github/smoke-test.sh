@@ -3,7 +3,7 @@
 # (forces every mixin to apply), then reports injection failures. Remove once the port is verified.
 set +e
 sudo apt-get update -qq >/dev/null && sudo apt-get install -y -qq xvfb libgl1-mesa-dri >/dev/null
-export JAVA_TOOL_OPTIONS="-Dnoammaddons.mixinAudit=true -Dmixin.ignoreRequired=true"
+export JAVA_TOOL_OPTIONS="-Dnoammaddons.mixinAudit=true"
 timeout 900 xvfb-run -a -s "-screen 0 1280x720x24" ./gradlew runClient --console=plain > run.log 2>&1 &
 PID=$!
 for _ in $(seq 1 170); do
