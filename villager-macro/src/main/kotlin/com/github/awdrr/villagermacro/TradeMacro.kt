@@ -217,7 +217,12 @@ object TradeMacro {
             return stop("§cYour inventory is full!")
         }
 
-        if (! hasString) return setState(State.GET_STRING)
+        if (! hasString) {
+            // /string only fills empty slots, so with just a few left it barely gives anything.
+            // Turn the emeralds into blocks and store them first to make room for a full refill.
+            if (emptySlots() <= MacroConfig.craftAtFreeSlots && countItem(Items.EMERALD) >= 9) return startCrafting()
+            return setState(State.GET_STRING)
+        }
 
         nextVillager()?.let {
             villager = it
@@ -711,7 +716,9 @@ object TradeMacro {
         if (index != TRADE_RESULT_SLOT && slot.item.`is`(Items.STRING)) slot.item.count else 0
     }
 
-    private fun stringCount() = mc.player?.inventory?.nonEquipmentItems?.sumOf { if (it.`is`(Items.STRING)) it.count else 0 } ?: 0
+    private fun emptySlots() = mc.player?.inventory?.nonEquipmentItems?.count { it.isEmpty } ?: 0
+
+    private fun stringCount() =mc.player?.inventory?.nonEquipmentItems?.sumOf { if (it.`is`(Items.STRING)) it.count else 0 } ?: 0
 
     private fun blockAt(pos: BlockPos): Block? = mc.level?.getBlockState(pos)?.block
 

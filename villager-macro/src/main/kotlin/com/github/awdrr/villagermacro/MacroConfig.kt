@@ -21,6 +21,12 @@ object MacroConfig {
     /** Command (without the slash) run whenever the macro runs out of string. */
     var stringCommand = "string"
 
+    /**
+     * When out of string with this many empty slots or fewer, craft and store the emeralds before getting more.
+     * /string only fills empty slots, so with few of them it hands out very little string.
+     */
+    var craftAtFreeSlots = 5
+
     private val file get() = FabricLoader.getInstance().configDir.resolve("villagermacro.properties")
 
     fun load() {
@@ -32,6 +38,7 @@ object MacroConfig {
         props.getProperty("rotationTime")?.toIntOrNull()?.let { rotationTime = it.coerceIn(0, 500) }
         props.getProperty("restockDelay")?.toIntOrNull()?.let { restockDelay = it.coerceIn(10, 600) }
         props.getProperty("stringCommand")?.removePrefix("/")?.trim()?.takeIf { it.isNotEmpty() }?.let { stringCommand = it }
+        props.getProperty("craftAtFreeSlots")?.toIntOrNull()?.let { craftAtFreeSlots = it.coerceIn(0, 36) }
     }
 
     fun save() {
@@ -41,6 +48,7 @@ object MacroConfig {
         props.setProperty("rotationTime", rotationTime.toString())
         props.setProperty("restockDelay", restockDelay.toString())
         props.setProperty("stringCommand", stringCommand)
+        props.setProperty("craftAtFreeSlots", craftAtFreeSlots.toString())
         runCatching { Files.newOutputStream(file).use { props.store(it, "Villager Trade Macro") } }
     }
 }

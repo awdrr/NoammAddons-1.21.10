@@ -64,6 +64,10 @@ object VillagerMacroMod: ClientModInitializer {
                         MacroConfig.stringCommand = StringArgumentType.getString(it, "command").removePrefix("/").trim().ifEmpty { "string" }
                         saved(it)
                     }))
+                    .then(literal("craftat").then(argument("slots", IntegerArgumentType.integer(0, 36)).executes {
+                        MacroConfig.craftAtFreeSlots = IntegerArgumentType.getInteger(it, "slots")
+                        saved(it)
+                    }))
             )
         }
     }
@@ -102,7 +106,8 @@ object VillagerMacroMod: ClientModInitializer {
         source.sendFeedback(Component.literal(
             "§6[Villager Macro]§r §7Reach: §f${MacroConfig.reach} §7| Click delay: §f${MacroConfig.clickDelay} ticks" +
                 " §7| Rotation: §f${MacroConfig.rotationTime} ms §7| Restock check: §f${MacroConfig.restockDelay} s" +
-                " §7| String command: §f/${MacroConfig.stringCommand}"
+                " §7| String command: §f/${MacroConfig.stringCommand}" +
+                " §7| Craft at: §f${MacroConfig.craftAtFreeSlots} free slots"
         ))
     }
 }
