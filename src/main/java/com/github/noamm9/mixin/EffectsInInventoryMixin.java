@@ -10,7 +10,7 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
 @Mixin(EffectsInInventory.class)
 public class EffectsInInventoryMixin {
-    @Inject(method = "renderEffects", at = @At("HEAD"), cancellable = true)
+    @Inject(method = "render", at = @At("HEAD"), cancellable = true)
     private void onInventoryEffects(GuiGraphics guiGraphics, int i, int j, CallbackInfo ci) {
         if (LocationUtils.inSkyblock) {
             ci.cancel();

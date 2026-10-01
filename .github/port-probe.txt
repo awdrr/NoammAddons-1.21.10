@@ -1,1 +1,1 @@
-
+priv:net.minecraft.client.gui.screens.inventory.EffectsInInventory render
