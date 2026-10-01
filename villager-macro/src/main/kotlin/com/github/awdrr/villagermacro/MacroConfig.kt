@@ -9,8 +9,8 @@ object MacroConfig {
     /** Max distance (blocks, from your eyes) to the villagers, the crafting table and the chest. */
     var reach = 4.5
 
-    /** Ticks to wait between trades and inventory clicks. */
-    var clickDelay = 2
+    /** Ticks to wait between trades and inventory clicks. 0 = several clicks per tick. */
+    var clickDelay = 1
 
     /** Milliseconds spent turning towards a villager or block before using it. */
     var rotationTime = 150
@@ -25,7 +25,7 @@ object MacroConfig {
      * When out of string with this many empty slots or fewer, craft and store the emeralds before getting more.
      * /string only fills empty slots, so with few of them it hands out very little string.
      */
-    var craftAtFreeSlots = 5
+    var craftAtFreeSlots = 10
 
     private val file get() = FabricLoader.getInstance().configDir.resolve("villagermacro.properties")
 
@@ -34,7 +34,7 @@ object MacroConfig {
         runCatching { Files.newInputStream(file).use { props.load(it) } }.onFailure { return }
 
         props.getProperty("reach")?.toDoubleOrNull()?.let { reach = it.coerceIn(3.0, 5.5) }
-        props.getProperty("clickDelay")?.toIntOrNull()?.let { clickDelay = it.coerceIn(1, 10) }
+        props.getProperty("clickDelay")?.toIntOrNull()?.let { clickDelay = it.coerceIn(0, 10) }
         props.getProperty("rotationTime")?.toIntOrNull()?.let { rotationTime = it.coerceIn(0, 500) }
         props.getProperty("restockDelay")?.toIntOrNull()?.let { restockDelay = it.coerceIn(10, 600) }
         props.getProperty("stringCommand")?.removePrefix("/")?.trim()?.takeIf { it.isNotEmpty() }?.let { stringCommand = it }

@@ -58,6 +58,7 @@ object TradeMacro {
 
     private val MENU_STATES = setOf(State.TRADING, State.CRAFTING, State.STORING)
 
+    private const val CLICKS_PER_TICK_AT_MAX_SPEED = 4
     private const val OPEN_TIMEOUT = 40
     private const val MAX_OPEN_ATTEMPTS = 3
     private const val MAX_STALLS = 3
@@ -181,6 +182,16 @@ object TradeMacro {
         stateTicks ++
         if (stateTicks > MAX_STATE_STEPS && state in MENU_STATES) return stop("§cStopped, got stuck while ${state.label.lowercase()}.")
 
+        // Click delay 0: click several times per tick inside menus, like spam clicking at a high frame rate.
+        // The server applies the clicks in order and the client predicts each one, so none get lost.
+        val actions = if (MacroConfig.clickDelay == 0) CLICKS_PER_TICK_AT_MAX_SPEED else 1
+        for (i in 0 until actions) {
+            if (i > 0 && (! running || waitTicks > 0 || state !in MENU_STATES)) break
+            step()
+        }
+    }
+
+    private fun step() {
         when (state) {
             State.FIND_VILLAGER -> findNextAction()
             State.GET_STRING -> getString()

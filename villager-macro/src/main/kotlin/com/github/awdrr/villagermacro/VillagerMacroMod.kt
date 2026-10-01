@@ -48,7 +48,7 @@ object VillagerMacroMod: ClientModInitializer {
                         MacroConfig.reach = DoubleArgumentType.getDouble(it, "blocks")
                         saved(it)
                     }))
-                    .then(literal("delay").then(argument("ticks", IntegerArgumentType.integer(1, 10)).executes {
+                    .then(literal("delay").then(argument("ticks", IntegerArgumentType.integer(0, 10)).executes {
                         MacroConfig.clickDelay = IntegerArgumentType.getInteger(it, "ticks")
                         saved(it)
                     }))
@@ -104,7 +104,7 @@ object VillagerMacroMod: ClientModInitializer {
 
     private fun showSettings(source: FabricClientCommandSource) {
         source.sendFeedback(Component.literal(
-            "§6[Villager Macro]§r §7Reach: §f${MacroConfig.reach} §7| Click delay: §f${MacroConfig.clickDelay} ticks" +
+            "§6[Villager Macro]§r §7Reach: §f${MacroConfig.reach} §7| Click delay: §f${if (MacroConfig.clickDelay == 0) "0 (max speed)" else "${MacroConfig.clickDelay} ticks"}" +
                 " §7| Rotation: §f${MacroConfig.rotationTime} ms §7| Restock check: §f${MacroConfig.restockDelay} s" +
                 " §7| String command: §f/${MacroConfig.stringCommand}" +
                 " §7| Craft at: §f${MacroConfig.craftAtFreeSlots} free slots"
