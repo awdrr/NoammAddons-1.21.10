@@ -69,6 +69,7 @@ object TradeMacro {
     private const val STRING_RETRY_MS = 30_000L
     private const val MIN_STRING_INTERVAL_MS = 2_000L
     private const val MAX_STRING_FAILS = 10
+    private const val STRING_SETTLE_TICKS = 5
 
     private const val SERVER_TIMEOUT = 40
     private const val MIN_RECIPE_INTERVAL_MS = 250L
@@ -106,6 +107,7 @@ object TradeMacro {
     private var needsCrafting = false
 
     private var stringBefore = 0
+    private var stringRequestedAt = - 1
     private var stringFails = 0
     private var lastStringCommand = 0L
     private var nextStringAttempt = 0L
@@ -217,6 +219,7 @@ object TradeMacro {
         rotation = null
         serverSyncId = - 1
         settledAfter = - 1
+        stringRequestedAt = - 1
     }
 
     private fun findNextAction() {
@@ -235,7 +238,7 @@ object TradeMacro {
         if (! hasString) {
             // /string only fills empty slots, so with just a few left it barely gives anything.
             // Turn the emeralds into blocks and store them first to make room for a full refill.
-            if (emptySlots() <= MacroConfig.craftAtFreeSlots && countItem(Items.EMERALD) >= 9) return startCrafting()
+            if (shouldCraftBeforeString()) return startCrafting()
             return setState(State.GET_STRING)
         }
 
@@ -267,15 +270,22 @@ object TradeMacro {
         if (stringCount() > stringBefore) {
             stringFails = 0
             // Give the rest of the string a moment to arrive.
-            return setState(State.FIND_VILLAGER, 10)
+            return setState(State.FIND_VILLAGER, STRING_SETTLE_TICKS)
         }
 
-        if (stateTicks > STRING_TIMEOUT) {
-            if (++ stringFails >= MAX_STRING_FAILS) return stop("§c/$command didn't give you any string $MAX_STRING_FAILS times in a row.")
-            if (stringFails == 1) chat("§e/$command didn't give you any string, trying again every ${STRING_RETRY_MS / 1000}s.")
-            nextStringAttempt = now + STRING_RETRY_MS
-            setState(State.STRING_COOLDOWN)
+        if (stateTicks > STRING_TIMEOUT && stringFailed(now)) setState(State.STRING_COOLDOWN)
+    }
+
+    /** Counts a string command that gave nothing. Returns false if the macro gave up and stopped. */
+    private fun stringFailed(now: Long): Boolean {
+        val command = MacroConfig.stringCommand
+        if (++ stringFails >= MAX_STRING_FAILS) {
+            stop("§c/$command didn't give you any string $MAX_STRING_FAILS times in a row.", closeMenu = true)
+            return false
         }
+        if (stringFails == 1) chat("§e/$command didn't give you any string, trying again every ${STRING_RETRY_MS / 1000}s.")
+        nextStringAttempt = now + STRING_RETRY_MS
+        return true
     }
 
     private fun startCrafting() {
@@ -317,6 +327,8 @@ object TradeMacro {
         val menu = mc.player !!.containerMenu as? MerchantMenu ?: return setState(State.FIND_VILLAGER, MacroConfig.clickDelay)
         val target = villager ?: return closeMenu(State.FIND_VILLAGER)
         val now = System.currentTimeMillis()
+
+        if (stringRequestedAt >= 0) return waitForStringInMenu(menu, now)
 
         val offers = menu.offers
         if (offers.isEmpty()) {
@@ -367,9 +379,15 @@ object TradeMacro {
             if (paidString(menu) < cost) {
                 val available = stringIn(menu)
                 if (available < cost) {
-                    // Can't afford this villager. If a cheaper one exists use it, otherwise go get more string.
-                    if (available >= (cheapestTrade ?: cost)) villagerCooldowns[target.uuid] = now + VILLAGER_RETRY_MS
-                    return closeMenu(State.FIND_VILLAGER)
+                    // Can't afford this villager but a cheaper one exists: use that one.
+                    if (available >= (cheapestTrade ?: cost)) {
+                        villagerCooldowns[target.uuid] = now + VILLAGER_RETRY_MS
+                        return closeMenu(State.FIND_VILLAGER)
+                    }
+                    // Time to craft first, or no room for string or emeralds: findNextAction() sorts that out.
+                    if (shouldCraftBeforeString() || ! canFit(Items.STRING) || ! canFit(Items.EMERALD)) return closeMenu(State.FIND_VILLAGER)
+                    // Otherwise get more string without leaving the trade menu.
+                    return requestStringInMenu(menu, now)
                 }
 
                 // The game couldn't refill it (no room to take the leftover string back first),
@@ -394,6 +412,30 @@ object TradeMacro {
         // Shift click the output in the same tick as the refill. It keeps trading until the payment slot runs low.
         usesAtClick = offer.uses
         click(TRADE_RESULT_SLOT, 0, ClickType.QUICK_MOVE)
+    }
+
+    /** Runs the string command with the trade menu still open; the string shows up in the menu's inventory slots. */
+    private fun requestStringInMenu(menu: MerchantMenu, now: Long) {
+        if (now - lastStringCommand < MIN_STRING_INTERVAL_MS) return
+        stringBefore = stringIn(menu)
+        mc.connection?.sendCommand(MacroConfig.stringCommand)
+        lastStringCommand = now
+        stringRequestedAt = stateTicks
+    }
+
+    private fun waitForStringInMenu(menu: MerchantMenu, now: Long) {
+        if (stringIn(menu) > stringBefore) {
+            stringRequestedAt = - 1
+            stringFails = 0
+            // Give the rest of the string a moment to arrive, then carry on trading.
+            waitTicks = STRING_SETTLE_TICKS
+            return
+        }
+
+        if (stateTicks - stringRequestedAt > STRING_TIMEOUT && stringFailed(now)) {
+            mc.player?.closeContainer()
+            setState(State.STRING_COOLDOWN)
+        }
     }
 
     private fun paidString(menu: MerchantMenu) = menu.getSlot(PAYMENT_SLOT).item.let { if (it.`is`(Items.STRING)) it.count else 0 }
@@ -731,7 +773,8 @@ object TradeMacro {
     }
 
     private fun statusLine(): String {
-        var line = "§bVillager Macro §7- §f${state.label} §7| §a${countItem(Items.EMERALD)} emeralds §7| §f${stringCount()} string" +
+        val label = if (state == State.TRADING && stringRequestedAt >= 0) "Getting string" else state.label
+        var line = "§bVillager Macro §7- §f$label §7| §a${countItem(Items.EMERALD)} emeralds §7| §f${stringCount()} string" +
             " §7| Trades: §f$tradesDone §7| Blocks stored: §a$blocksStored"
 
         val now = System.currentTimeMillis()
@@ -750,6 +793,8 @@ object TradeMacro {
     private fun stringIn(menu: MerchantMenu) = menu.slots.withIndex().sumOf { (index, slot) ->
         if (index != TRADE_RESULT_SLOT && slot.item.`is`(Items.STRING)) slot.item.count else 0
     }
+
+    private fun shouldCraftBeforeString() = emptySlots() <= MacroConfig.craftAtFreeSlots && countItem(Items.EMERALD) >= 9
 
     private fun emptySlots() = mc.player?.inventory?.nonEquipmentItems?.count { it.isEmpty } ?: 0
 
