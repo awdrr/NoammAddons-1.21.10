@@ -55,14 +55,14 @@ public abstract class MixinAbstractContainerScreen extends Screen {
     }
 
     @Inject(method = "renderSlot", at = @At("HEAD"), cancellable = true)
-    private void onDrawSlotPre(GuiGraphics guiGraphics, Slot slot, CallbackInfo ci) {
+    private void onDrawSlotPre(GuiGraphics guiGraphics, Slot slot, int mouseX, int mouseY, CallbackInfo ci) {
         if (EventBus.post(new ContainerEvent.Render.Slot.Pre(this, guiGraphics, slot))) {
             ci.cancel();
         }
     }
 
     @Inject(method = "renderSlot", at = @At("TAIL"))
-    private void onDrawSlotPost(GuiGraphics guiGraphics, Slot slot, CallbackInfo ci) {
+    private void onDrawSlotPost(GuiGraphics guiGraphics, Slot slot, int mouseX, int mouseY, CallbackInfo ci) {
         EventBus.post(new ContainerEvent.Render.Slot.Post(this, guiGraphics, slot));
     }
 

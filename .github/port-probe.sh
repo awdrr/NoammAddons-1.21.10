@@ -19,5 +19,7 @@ while read -r line; do
     *) echo "===== $line"; javap -cp "$JAR" -public "$line" 2>&1 | head -120 ;;
   esac
 done < .github/port-probe.txt
+echo "===== mixin check"
+python3 .github/mixin-check.py "$JAR" src/main/java/com/github/noamm9/mixin
 echo "===== compile errors"
 grep -E '^e: |error:|: error|warning: .*(target|Cannot find|Unable to)|FAILURE|What went wrong' -A2 build.log | grep -v '^--$' | head -400

@@ -1,4 +1,1 @@
-priv:net.minecraft.client.gui.components.ChatComponent .
-priv:net.minecraft.client.gui.components.ChatComponent$ChatGraphicsAccess .
-priv:net.minecraft.client.gui.Font prepareText|drawInBatch|class|width
-priv:net.minecraft.client.GuiMessage$Line .
+
