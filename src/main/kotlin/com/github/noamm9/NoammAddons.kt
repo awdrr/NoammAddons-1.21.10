@@ -12,12 +12,14 @@ import com.github.noamm9.utils.dungeons.DungeonListener
 import com.github.noamm9.utils.items.ItemUtils
 import com.github.noamm9.utils.network.WebUtils
 import com.github.noamm9.utils.network.data.ElectionData
+import com.github.noamm9.utils.render.NoammRenderLayers
 import com.github.noamm9.utils.render.RoundedRect
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.serialization.json.*
 import net.fabricmc.api.ClientModInitializer
+import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents
 import net.fabricmc.fabric.api.client.rendering.v1.SpecialGuiElementRegistry
 import net.minecraft.client.Minecraft
 import net.minecraft.client.gui.screens.Screen
@@ -74,6 +76,24 @@ object NoammAddons: ClientModInitializer {
         }
 
         isLoaded = true
+
+        // TEMP (1.21.11 port): CI smoke test forces every mixin to apply, then quits
+        if (System.getProperty("noammaddons.mixinAudit") != null) {
+            var audited = false
+            ClientTickEvents.END_CLIENT_TICK.register {
+                if (audited) return@register
+                audited = true
+                try {
+                    NoammRenderLayers.FILLED
+                    org.spongepowered.asm.mixin.MixinEnvironment.getCurrentEnvironment().audit()
+                    logger.info("NOAMM_MIXIN_AUDIT_DONE")
+                }
+                catch (e: Throwable) {
+                    logger.error("NOAMM_MIXIN_AUDIT_FAILED", e)
+                }
+                mc.stop()
+            }
+        }
     }
 
     private fun initNetworkLoop() = ThreadUtils.loop(600_000) {

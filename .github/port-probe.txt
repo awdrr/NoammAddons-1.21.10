@@ -1,6 +1,4 @@
-priv:net.minecraft.client.renderer.rendertype.RenderType class|create
-priv:net.minecraft.client.renderer.RenderPipelines class|LINES_SNIPPET|DEBUG_FILLED_SNIPPET|register
-grep:net.minecraft.client.Camera position|Rot|class
-grep:net.minecraft.client.gui.screens.Screen class| init|resize
-net.minecraft.client.gui.components.AbstractButton
-priv:net.minecraft.client.gui.components.Button class|render|abstract
+priv:net.minecraft.client.gui.components.ChatComponent .
+priv:net.minecraft.client.gui.components.ChatComponent$ChatGraphicsAccess .
+priv:net.minecraft.client.gui.Font prepareText|drawInBatch|class|width
+priv:net.minecraft.client.GuiMessage$Line .
