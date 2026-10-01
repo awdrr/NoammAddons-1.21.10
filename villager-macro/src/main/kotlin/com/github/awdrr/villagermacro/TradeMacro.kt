@@ -23,6 +23,7 @@ import net.minecraft.world.inventory.MerchantMenu
 import net.minecraft.world.item.Item
 import net.minecraft.world.item.ItemStack
 import net.minecraft.world.item.Items
+import net.minecraft.world.item.crafting.display.SlotDisplayContext
 import net.minecraft.world.item.trading.MerchantOffer
 import net.minecraft.world.level.block.Block
 import net.minecraft.world.level.block.Blocks
@@ -68,6 +69,9 @@ object TradeMacro {
     private const val MIN_STRING_INTERVAL_MS = 2_000L
     private const val MAX_STRING_FAILS = 10
 
+    private const val RECIPE_TIMEOUT = 20
+    private const val MIN_RECIPE_INTERVAL_MS = 250L
+
     private const val PAYMENT_SLOT = 0
     private val TRADE_INV_SLOTS = 3 .. 38
     private const val TRADE_RESULT_SLOT = 2
@@ -96,7 +100,6 @@ object TradeMacro {
     private val ignoredVillagers = mutableSetOf<UUID>()
     private var cheapestTrade: Int? = null
 
-    private var tradeSelected = false
     private var usesAtClick = - 1
     private var tradeStalls = 0
     private var needsCrafting = false
@@ -111,6 +114,10 @@ object TradeMacro {
     private var pickupSource = CRAFT_INV_SLOTS.first
     private var lastCraftTotal = - 1
     private var craftStalls = 0
+    private var useRecipeBook = true
+    private var recipePending = false
+    private var recipePlacedAt = 0
+    private var lastRecipePlace = 0L
 
     private var tradesDone = 0
     private var blocksStored = 0
@@ -253,6 +260,10 @@ object TradeMacro {
 
     private fun startCrafting() {
         if (! stationsValid()) locateStations()?.let { return stop("§c$it") }
+        useRecipeBook = true
+        recipePending = false
+        lastCraftTotal = - 1
+        craftStalls = 0
         setState(State.OPEN_CRAFTING)
     }
 
@@ -266,7 +277,6 @@ object TradeMacro {
         if (target == null || ! target.isAlive || ! inReach(target.boundingBox)) return setState(State.FIND_VILLAGER)
 
         if (interactSent && mc.player !!.containerMenu is MerchantMenu) {
-            tradeSelected = false
             usesAtClick = - 1
             tradeStalls = 0
             return setState(State.TRADING, MacroConfig.clickDelay)
@@ -321,27 +331,20 @@ object TradeMacro {
         }
 
         val carried = menu.carried
-        val payment = menu.getSlot(PAYMENT_SLOT).item
-        val paid = if (payment.`is`(Items.STRING)) payment.count else 0
+        if (! carried.isEmpty) return placeCarriedString(menu, carried, menu.getSlot(PAYMENT_SLOT).item)
 
-        when {
-            // Same as clicking the trade in the list: selects it and pulls string into the payment slot.
-            ! tradeSelected -> {
-                menu.setSelectionHint(index)
-                menu.tryMoveItems(index)
-                mc.connection?.send(ServerboundSelectTradePacket(index))
-                tradeSelected = true
-                waitTicks = MacroConfig.clickDelay
-            }
+        if (offer.isOutOfStock) {
+            villagerCooldowns[target.uuid] = now + MacroConfig.restockDelay * 1000L
+            return closeMenu(State.FIND_VILLAGER)
+        }
 
-            ! carried.isEmpty -> placeCarriedString(menu, carried, payment)
+        if (paidString(menu) < cost) {
+            // Same as pressing space on the selected trade: picks it again, which refills the payment slot with string.
+            menu.setSelectionHint(index)
+            menu.tryMoveItems(index)
+            mc.connection?.send(ServerboundSelectTradePacket(index))
 
-            offer.isOutOfStock -> {
-                villagerCooldowns[target.uuid] = now + MacroConfig.restockDelay * 1000L
-                closeMenu(State.FIND_VILLAGER)
-            }
-
-            paid < cost -> {
+            if (paidString(menu) < cost) {
                 val available = stringIn(menu)
                 if (available < cost) {
                     // Can't afford this villager. If a cheaper one exists use it, otherwise go get more string.
@@ -349,28 +352,31 @@ object TradeMacro {
                     return closeMenu(State.FIND_VILLAGER)
                 }
 
-                // Top the payment slot back up: pick up a stack of string here, drop it on the slot next step.
+                // The game couldn't refill it (no room to take the leftover string back first),
+                // so top it up by hand: pick up a stack of string here, drop it on the payment slot next step.
+                val payment = menu.getSlot(PAYMENT_SLOT).item
                 val source = TRADE_INV_SLOTS.filter {
                     val stack = menu.getSlot(it).item
                     stack.`is`(Items.STRING) && (payment.isEmpty || ItemStack.isSameItemSameComponents(stack, payment))
                 }.maxByOrNull { menu.getSlot(it).item.count } ?: return closeMenu(State.FIND_VILLAGER)
 
                 pickupSource = source
-                click(source, 0, ClickType.PICKUP)
-            }
-
-            // No room for the emerald even with the string moved into the payment slot.
-            ! canFit(Items.EMERALD) -> {
-                needsCrafting = true
-                closeMenu(State.FIND_VILLAGER)
-            }
-
-            else -> {
-                usesAtClick = offer.uses
-                click(TRADE_RESULT_SLOT, 0, ClickType.QUICK_MOVE)
+                return click(source, 0, ClickType.PICKUP)
             }
         }
+
+        // No room for the emerald even with the string moved into the payment slot.
+        if (! canFit(Items.EMERALD)) {
+            needsCrafting = true
+            return closeMenu(State.FIND_VILLAGER)
+        }
+
+        // Shift click the output in the same tick as the refill. It keeps trading until the payment slot runs low.
+        usesAtClick = offer.uses
+        click(TRADE_RESULT_SLOT, 0, ClickType.QUICK_MOVE)
     }
+
+    private fun paidString(menu: MerchantMenu) = menu.getSlot(PAYMENT_SLOT).item.let { if (it.`is`(Items.STRING)) it.count else 0 }
 
     /** Drops picked up string onto the payment slot (it holds up to a stack), then puts whatever is left back. */
     private fun placeCarriedString(menu: MerchantMenu, carried: ItemStack, payment: ItemStack) {
@@ -388,33 +394,95 @@ object TradeMacro {
         click(target, 0, ClickType.PICKUP)
     }
 
-    /**
-     * Fills every grid slot with the same amount of emeralds, then shift clicks the result.
-     * Repeats until less than 9 emeralds are left. Does one click per call.
-     */
     private fun craft() {
         val menu = mc.player !!.containerMenu as? CraftingMenu ?: return setState(State.OPEN_CRAFTING, MacroConfig.clickDelay)
 
         val carried = menu.carried
         if (! carried.isEmpty) return placeCarried(menu, carried)
 
+        if (useRecipeBook) craftWithRecipeBook(menu)
+        else craftByHand(menu)
+    }
+
+    /**
+     * Same as a player using the recipe book: shift click the emerald block recipe (fills the grid with as many
+     * emeralds as fit, up to a stack per slot), then shift click the output. Two actions per 64 blocks.
+     */
+    private fun craftWithRecipeBook(menu: CraftingMenu) {
+        val inGrid = CRAFT_GRID_SLOTS.sumOf { menu.getSlot(it).item.count }
+
+        if (inGrid > 0 && isPlain(menu.getSlot(CRAFT_RESULT_SLOT).item, Items.EMERALD_BLOCK)) {
+            recipePending = false
+            return craftResult(countItem(Items.EMERALD) + inGrid)
+        }
+
+        if (recipePending) {
+            // Wait for the server to fill the grid, fall back to crafting by hand if it never does.
+            if (stateTicks - recipePlacedAt > RECIPE_TIMEOUT) {
+                recipePending = false
+                useRecipeBook = false
+            }
+            return
+        }
+
+        // Something in the grid the recipe book didn't put there, crafting by hand sorts it out.
+        if (inGrid > 0) {
+            useRecipeBook = false
+            return
+        }
+        if (countItem(Items.EMERALD) < 9) return finishCrafting()
+
+        val recipe = emeraldBlockRecipe()
+        if (recipe == null) {
+            useRecipeBook = false
+            return
+        }
+
+        // Servers rate limit recipe book clicks (Paper allows 5 a second).
+        val now = System.currentTimeMillis()
+        if (now - lastRecipePlace < MIN_RECIPE_INTERVAL_MS) return
+        mc.gameMode?.handlePlaceRecipe(menu.containerId, recipe, true)
+        lastRecipePlace = now
+        recipePending = true
+        recipePlacedAt = stateTicks
+    }
+
+    /** The emerald block recipe from the recipe book, if it's unlocked (it is once you've had an emerald). */
+    private fun emeraldBlockRecipe() = mc.level?.let { level ->
+        val context = SlotDisplayContext.fromLevel(level)
+        mc.player?.recipeBook?.collections?.asSequence()?.flatMap { it.recipes }
+            ?.firstOrNull { entry -> entry.resultItems(context).any { isPlain(it, Items.EMERALD_BLOCK) } }
+            ?.id()
+    }
+
+    private fun craftResult(total: Int) {
+        if (total != lastCraftTotal) craftStalls = 0
+        else if (++ craftStalls >= MAX_STALLS) return stop("§cCouldn't craft emerald blocks, is your inventory full?", closeMenu = true)
+        lastCraftTotal = total
+        click(CRAFT_RESULT_SLOT, 0, ClickType.QUICK_MOVE)
+    }
+
+    private fun finishCrafting() {
+        pendingGridSlot = - 1
+        closeMenu(if (countItem(Items.EMERALD_BLOCK) > 0) State.OPEN_CHEST else State.FIND_VILLAGER)
+    }
+
+    /**
+     * Fallback when the recipe book can't be used: fills every grid slot with the same amount of emeralds
+     * by clicking, then shift clicks the result. Repeats until less than 9 emeralds are left. One click per call.
+     */
+    private fun craftByHand(menu: CraftingMenu) {
         val sources = CRAFT_INV_SLOTS.filter { isPlain(menu.getSlot(it).item, Items.EMERALD) }
         val total = sources.sumOf { menu.getSlot(it).item.count } + CRAFT_GRID_SLOTS.sumOf { menu.getSlot(it).item.count }
         val perSlot = min(64, total / 9)
 
         if (perSlot == 0) {
             CRAFT_GRID_SLOTS.firstOrNull { menu.getSlot(it).hasItem() }?.let { return click(it, 0, ClickType.QUICK_MOVE) }
-            pendingGridSlot = - 1
-            return closeMenu(if (countItem(Items.EMERALD_BLOCK) > 0) State.OPEN_CHEST else State.FIND_VILLAGER)
+            return finishCrafting()
         }
 
         val gridSlot = CRAFT_GRID_SLOTS.firstOrNull { menu.getSlot(it).item.count < perSlot }
-        if (gridSlot == null) {
-            if (total != lastCraftTotal) craftStalls = 0
-            else if (++ craftStalls >= MAX_STALLS) return stop("§cCouldn't craft emerald blocks, is your inventory full?", closeMenu = true)
-            lastCraftTotal = total
-            return click(CRAFT_RESULT_SLOT, 0, ClickType.QUICK_MOVE)
-        }
+        if (gridSlot == null) return craftResult(total)
 
         val need = perSlot - menu.getSlot(gridSlot).item.count
         val source = sources.firstOrNull { menu.getSlot(it).item.count == need }
