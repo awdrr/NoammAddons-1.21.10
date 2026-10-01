@@ -34,15 +34,18 @@ import java.util.*
 import kotlin.math.*
 
 /**
- * Trades string to villagers for emeralds. Once trading can't continue (inventory full, out of string
- * or every villager sold out) it crafts the emeralds into blocks at the crafting table under the chest,
- * stores the blocks in the chest, then resumes trading or waits for the villagers to restock.
+ * Trades string to villagers for emeralds, running the string command (/string) whenever it runs out.
+ * Once the inventory has no room left for emeralds it crafts them into blocks at the crafting table
+ * under the chest, stores the blocks in the chest and goes back to trading.
+ * When every villager is sold out it waits for them to restock.
  */
 object TradeMacro {
     private val mc get() = Minecraft.getInstance()
 
     private enum class State(val label: String) {
         FIND_VILLAGER("Looking for a villager"),
+        GET_STRING("Getting string"),
+        STRING_COOLDOWN("Waiting to get string"),
         OPEN_VILLAGER("Opening villager"),
         TRADING("Trading"),
         OPEN_CRAFTING("Opening crafting table"),
@@ -60,6 +63,13 @@ object TradeMacro {
     private const val MAX_STATE_STEPS = 2000
     private const val VILLAGER_RETRY_MS = 30_000L
 
+    private const val STRING_TIMEOUT = 100
+    private const val STRING_RETRY_MS = 30_000L
+    private const val MIN_STRING_INTERVAL_MS = 2_000L
+    private const val MAX_STRING_FAILS = 10
+
+    private const val PAYMENT_SLOT = 0
+    private val TRADE_INV_SLOTS = 3 .. 38
     private const val TRADE_RESULT_SLOT = 2
     private const val CRAFT_RESULT_SLOT = 0
     private val CRAFT_GRID_SLOTS = 1 .. 9
@@ -89,6 +99,12 @@ object TradeMacro {
     private var tradeSelected = false
     private var usesAtClick = - 1
     private var tradeStalls = 0
+    private var needsCrafting = false
+
+    private var stringBefore = 0
+    private var stringFails = 0
+    private var lastStringCommand = 0L
+    private var nextStringAttempt = 0L
 
     private var gridTarget = 0
     private var pendingGridSlot = - 1
@@ -113,6 +129,8 @@ object TradeMacro {
         cheapestTrade = null
         villager = null
         pendingGridSlot = - 1
+        needsCrafting = false
+        stringFails = 0
         tradesDone = 0
         blocksStored = 0
         level = mc.level
@@ -158,6 +176,8 @@ object TradeMacro {
 
         when (state) {
             State.FIND_VILLAGER -> findNextAction()
+            State.GET_STRING -> getString()
+            State.STRING_COOLDOWN -> if (System.currentTimeMillis() >= nextStringAttempt) setState(State.FIND_VILLAGER)
             State.OPEN_VILLAGER -> openVillager()
             State.TRADING -> trade()
             State.OPEN_CRAFTING -> openBlock(craftingTable, "crafting table", State.CRAFTING) { it is CraftingMenu }
@@ -178,25 +198,57 @@ object TradeMacro {
     }
 
     private fun findNextAction() {
-        val emeralds = countItem(Items.EMERALD)
-        val inventoryFull = ! canFit(Items.EMERALD)
-        val outOfString = countItem(Items.STRING) < (cheapestTrade ?: 1)
+        val hasString = stringCount() >= (cheapestTrade ?: 1)
 
-        if (inventoryFull || outOfString) {
-            if (emeralds >= 9) return startCrafting()
-            if (inventoryFull && countItem(Items.EMERALD_BLOCK) > 0) return startStoring()
-            return stop(if (outOfString) "§eOut of string, stopping." else "§cYour inventory is full!")
+        // String in the inventory doesn't count as "full": trading pulls it into the payment slot and frees space.
+        // needsCrafting is set by trade() when there's still no room for an emerald after that.
+        val inventoryFull = needsCrafting || (! hasString && (! canFit(Items.EMERALD) || ! canFit(Items.STRING)))
+        if (inventoryFull) {
+            needsCrafting = false
+            if (countItem(Items.EMERALD) >= 9) return startCrafting()
+            if (countItem(Items.EMERALD_BLOCK) > 0) return startStoring()
+            return stop("§cYour inventory is full!")
         }
+
+        if (! hasString) return setState(State.GET_STRING)
 
         nextVillager()?.let {
             villager = it
             return setState(State.OPEN_VILLAGER)
         }
 
-        // Every villager is sold out, store what we have while waiting for them to restock.
-        if (emeralds >= 9) return startCrafting()
         if (villagersInReach().all { it.uuid in ignoredVillagers }) return stop("§cNo villagers with a string trade within reach!")
         setState(State.WAITING)
+    }
+
+    /** Runs the string command and waits for string to show up in the inventory, retrying later if it doesn't. */
+    private fun getString() {
+        val now = System.currentTimeMillis()
+        val command = MacroConfig.stringCommand
+
+        if (! interactSent) {
+            if (! clearScreen()) return
+            if (now - lastStringCommand < MIN_STRING_INTERVAL_MS) return
+            stringBefore = stringCount()
+            mc.connection?.sendCommand(command)
+            lastStringCommand = now
+            interactSent = true
+            stateTicks = 0
+            return
+        }
+
+        if (stringCount() > stringBefore) {
+            stringFails = 0
+            // Give the rest of the string a moment to arrive.
+            return setState(State.FIND_VILLAGER, 10)
+        }
+
+        if (stateTicks > STRING_TIMEOUT) {
+            if (++ stringFails >= MAX_STRING_FAILS) return stop("§c/$command didn't give you any string $MAX_STRING_FAILS times in a row.")
+            if (stringFails == 1) chat("§e/$command didn't give you any string, trying again every ${STRING_RETRY_MS / 1000}s.")
+            nextStringAttempt = now + STRING_RETRY_MS
+            setState(State.STRING_COOLDOWN)
+        }
     }
 
     private fun startCrafting() {
@@ -255,7 +307,7 @@ object TradeMacro {
         val cost = offer.costA.count
         cheapestTrade = min(cheapestTrade ?: cost, cost)
 
-        if (! tradeSelected && usesAtClick >= 0) {
+        if (usesAtClick >= 0) {
             val gained = offer.uses - usesAtClick
             usesAtClick = - 1
             if (gained > 0) {
@@ -268,15 +320,12 @@ object TradeMacro {
             }
         }
 
+        val carried = menu.carried
+        val payment = menu.getSlot(PAYMENT_SLOT).item
+        val paid = if (payment.`is`(Items.STRING)) payment.count else 0
+
         when {
-            offer.isOutOfStock || stringIn(menu) < cost -> {
-                villagerCooldowns[target.uuid] = now + MacroConfig.restockDelay * 1000L
-                closeMenu(State.FIND_VILLAGER)
-            }
-
-            ! canFit(Items.EMERALD) -> closeMenu(State.FIND_VILLAGER)
-
-            // Same as clicking the trade in the list: pulls the string into the payment slot.
+            // Same as clicking the trade in the list: selects it and pulls string into the payment slot.
             ! tradeSelected -> {
                 menu.setSelectionHint(index)
                 menu.tryMoveItems(index)
@@ -285,12 +334,58 @@ object TradeMacro {
                 waitTicks = MacroConfig.clickDelay
             }
 
+            ! carried.isEmpty -> placeCarriedString(menu, carried, payment)
+
+            offer.isOutOfStock -> {
+                villagerCooldowns[target.uuid] = now + MacroConfig.restockDelay * 1000L
+                closeMenu(State.FIND_VILLAGER)
+            }
+
+            paid < cost -> {
+                val available = stringIn(menu)
+                if (available < cost) {
+                    // Can't afford this villager. If a cheaper one exists use it, otherwise go get more string.
+                    if (available >= (cheapestTrade ?: cost)) villagerCooldowns[target.uuid] = now + VILLAGER_RETRY_MS
+                    return closeMenu(State.FIND_VILLAGER)
+                }
+
+                // Top the payment slot back up: pick up a stack of string here, drop it on the slot next step.
+                val source = TRADE_INV_SLOTS.filter {
+                    val stack = menu.getSlot(it).item
+                    stack.`is`(Items.STRING) && (payment.isEmpty || ItemStack.isSameItemSameComponents(stack, payment))
+                }.maxByOrNull { menu.getSlot(it).item.count } ?: return closeMenu(State.FIND_VILLAGER)
+
+                pickupSource = source
+                click(source, 0, ClickType.PICKUP)
+            }
+
+            // No room for the emerald even with the string moved into the payment slot.
+            ! canFit(Items.EMERALD) -> {
+                needsCrafting = true
+                closeMenu(State.FIND_VILLAGER)
+            }
+
             else -> {
                 usesAtClick = offer.uses
-                tradeSelected = false
                 click(TRADE_RESULT_SLOT, 0, ClickType.QUICK_MOVE)
             }
         }
+    }
+
+    /** Drops picked up string onto the payment slot (it holds up to a stack), then puts whatever is left back. */
+    private fun placeCarriedString(menu: MerchantMenu, carried: ItemStack, payment: ItemStack) {
+        val paymentHasRoom = payment.isEmpty || (ItemStack.isSameItemSameComponents(payment, carried) && payment.count < payment.maxStackSize)
+        if (carried.`is`(Items.STRING) && paymentHasRoom) return click(PAYMENT_SLOT, 0, ClickType.PICKUP)
+
+        val target = pickupSource.takeIf { it in TRADE_INV_SLOTS && ! menu.getSlot(it).hasItem() }
+            ?: TRADE_INV_SLOTS.firstOrNull { ! menu.getSlot(it).hasItem() }
+            ?: TRADE_INV_SLOTS.firstOrNull {
+                val stack = menu.getSlot(it).item
+                ItemStack.isSameItemSameComponents(stack, carried) && stack.count < stack.maxStackSize
+            }
+            ?: return stop("§cNo room to put the string back in your inventory.", closeMenu = true)
+
+        click(target, 0, ClickType.PICKUP)
     }
 
     /**
@@ -528,23 +623,27 @@ object TradeMacro {
     }
 
     private fun statusLine(): String {
-        var line = "§bVillager Macro §7- §f${state.label} §7| §a${countItem(Items.EMERALD)} emeralds §7| §f${countItem(Items.STRING)} string" +
+        var line = "§bVillager Macro §7- §f${state.label} §7| §a${countItem(Items.EMERALD)} emeralds §7| §f${stringCount()} string" +
             " §7| Trades: §f$tradesDone §7| Blocks stored: §a$blocksStored"
 
-        if (state == State.WAITING) {
-            val now = System.currentTimeMillis()
-            villagersInReach().filter { it.uuid !in ignoredVillagers }.minOfOrNull { villagerCooldowns[it.uuid] ?: now }?.let {
-                line += " §7| Next check in §f${max(0L, (it - now + 999) / 1000)}s"
-            }
+        val now = System.currentTimeMillis()
+        val nextCheck = when (state) {
+            State.WAITING -> villagersInReach().filter { it.uuid !in ignoredVillagers }.minOfOrNull { villagerCooldowns[it.uuid] ?: now }
+            State.STRING_COOLDOWN -> nextStringAttempt
+            else -> null
         }
+        nextCheck?.let { line += " §7| Next try in §f${max(0L, (it - now + 999) / 1000)}s" }
         return line
     }
 
     private fun isStringTrade(offer: MerchantOffer) = offer.costA.`is`(Items.STRING) && offer.costB.isEmpty && offer.result.`is`(Items.EMERALD)
 
+    /** String in the payment slot and the inventory, i.e. everything this trade can use. */
     private fun stringIn(menu: MerchantMenu) = menu.slots.withIndex().sumOf { (index, slot) ->
-        if (index != TRADE_RESULT_SLOT && isPlain(slot.item, Items.STRING)) slot.item.count else 0
+        if (index != TRADE_RESULT_SLOT && slot.item.`is`(Items.STRING)) slot.item.count else 0
     }
+
+    private fun stringCount() = mc.player?.inventory?.nonEquipmentItems?.sumOf { if (it.`is`(Items.STRING)) it.count else 0 } ?: 0
 
     private fun blockAt(pos: BlockPos): Block? = mc.level?.getBlockState(pos)?.block
 

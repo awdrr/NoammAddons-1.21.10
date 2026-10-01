@@ -3,6 +3,7 @@ package com.github.awdrr.villagermacro
 import com.mojang.blaze3d.platform.InputConstants
 import com.mojang.brigadier.arguments.DoubleArgumentType
 import com.mojang.brigadier.arguments.IntegerArgumentType
+import com.mojang.brigadier.arguments.StringArgumentType
 import com.mojang.brigadier.context.CommandContext
 import net.fabricmc.api.ClientModInitializer
 import net.fabricmc.fabric.api.client.command.v2.ClientCommandManager.argument
@@ -59,6 +60,10 @@ object VillagerMacroMod: ClientModInitializer {
                         MacroConfig.restockDelay = IntegerArgumentType.getInteger(it, "seconds")
                         saved(it)
                     }))
+                    .then(literal("command").then(argument("command", StringArgumentType.greedyString()).executes {
+                        MacroConfig.stringCommand = StringArgumentType.getString(it, "command").removePrefix("/").trim().ifEmpty { "string" }
+                        saved(it)
+                    }))
             )
         }
     }
@@ -96,7 +101,8 @@ object VillagerMacroMod: ClientModInitializer {
     private fun showSettings(source: FabricClientCommandSource) {
         source.sendFeedback(Component.literal(
             "§6[Villager Macro]§r §7Reach: §f${MacroConfig.reach} §7| Click delay: §f${MacroConfig.clickDelay} ticks" +
-                " §7| Rotation: §f${MacroConfig.rotationTime} ms §7| Restock check: §f${MacroConfig.restockDelay} s"
+                " §7| Rotation: §f${MacroConfig.rotationTime} ms §7| Restock check: §f${MacroConfig.restockDelay} s" +
+                " §7| String command: §f/${MacroConfig.stringCommand}"
         ))
     }
 }

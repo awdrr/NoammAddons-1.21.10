@@ -18,6 +18,9 @@ object MacroConfig {
     /** Seconds to wait before checking a sold out villager again. */
     var restockDelay = 60
 
+    /** Command (without the slash) run whenever the macro runs out of string. */
+    var stringCommand = "string"
+
     private val file get() = FabricLoader.getInstance().configDir.resolve("villagermacro.properties")
 
     fun load() {
@@ -28,6 +31,7 @@ object MacroConfig {
         props.getProperty("clickDelay")?.toIntOrNull()?.let { clickDelay = it.coerceIn(1, 10) }
         props.getProperty("rotationTime")?.toIntOrNull()?.let { rotationTime = it.coerceIn(0, 500) }
         props.getProperty("restockDelay")?.toIntOrNull()?.let { restockDelay = it.coerceIn(10, 600) }
+        props.getProperty("stringCommand")?.removePrefix("/")?.trim()?.takeIf { it.isNotEmpty() }?.let { stringCommand = it }
     }
 
     fun save() {
@@ -36,6 +40,7 @@ object MacroConfig {
         props.setProperty("clickDelay", clickDelay.toString())
         props.setProperty("rotationTime", rotationTime.toString())
         props.setProperty("restockDelay", restockDelay.toString())
+        props.setProperty("stringCommand", stringCommand)
         runCatching { Files.newOutputStream(file).use { props.store(it, "Villager Trade Macro") } }
     }
 }
