@@ -86,7 +86,7 @@ object SlotBinding: Feature("Allows you to bind slots to hotbar slots for quick 
             val inventorySlot = if (slotId in 36 .. 44) boundPartner else slotId
 
             if (mc.player == null || mc.gameMode == null) return@register
-            mc.gameMode !!.handleInventoryMouseClick(mc.player !!.containerMenu.containerId, inventorySlot, hotbarIndex, ClickType.SWAP, mc.player)
+            mc.gameMode !!.handleInventoryMouseClick(mc.player !!.containerMenu.containerId, inventorySlot, hotbarIndex, ClickType.SWAP, mc.player !!)
         }
 
         register<ContainerEvent.Close> {

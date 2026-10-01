@@ -302,7 +302,7 @@ object TerminalSolver: Feature("Renders solutions for Floor 7 terminals.") {
             slot,
             if (btn == 0) 2 else btn,
             if (btn == 0) ClickType.CLONE else ClickType.PICKUP,
-            mc.player
+            mc.player ?: return
         )
 
         if (NoammAddons.debugFlags.contains("terminal")) {

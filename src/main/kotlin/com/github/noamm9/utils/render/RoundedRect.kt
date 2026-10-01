@@ -13,6 +13,7 @@ import net.minecraft.client.gui.render.pip.PictureInPictureRenderer
 import net.minecraft.client.gui.render.state.pip.PictureInPictureRenderState
 import net.minecraft.client.renderer.DynamicUniformStorage
 import net.minecraft.client.renderer.MultiBufferSource
+import org.joml.Matrix4f
 import org.joml.Vector3f
 import org.joml.Vector4f
 import java.awt.Color
@@ -39,8 +40,7 @@ class RoundedRect(buffers: MultiBufferSource.BufferSource): PictureInPictureRend
         val mesh = builder.buildOrThrow()
 
         val dynamicTransforms = RenderSystem.getDynamicUniforms().writeTransform(
-            RenderSystem.getModelViewMatrix(), Vector4f(), Vector3f(),
-            RenderSystem.getTextureMatrix(), RenderSystem.getShaderLineWidth()
+            RenderSystem.getModelViewMatrix(), Vector4f(), Vector3f(), Matrix4f()
         )
 
         val ubo = uniforms.writeUniform { buf ->

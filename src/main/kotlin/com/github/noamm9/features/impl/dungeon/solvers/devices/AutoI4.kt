@@ -245,9 +245,9 @@ object AutoI4: Feature("Fully Automated I4") {
         scope.launch {
             for (pos in I4Helper.devBlocks.shuffled()) {
                 delay(800)
-                ClientboundBlockUpdatePacket(pos, Blocks.EMERALD_BLOCK.defaultBlockState()).handle(mc.connection)
+                ClientboundBlockUpdatePacket(pos, Blocks.EMERALD_BLOCK.defaultBlockState()).handle(mc.connection ?: break)
                 delay(600)
-                ClientboundBlockUpdatePacket(pos, Blocks.BLUE_TERRACOTTA.defaultBlockState()).handle(mc.connection)
+                ClientboundBlockUpdatePacket(pos, Blocks.BLUE_TERRACOTTA.defaultBlockState()).handle(mc.connection ?: break)
             }
         }
     }

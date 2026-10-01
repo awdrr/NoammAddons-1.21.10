@@ -14,10 +14,10 @@ import com.github.noamm9.utils.ThreadUtils
 import com.github.noamm9.utils.dungeons.DungeonListener
 import com.github.noamm9.utils.location.LocationUtils
 import com.github.noamm9.utils.render.NoammRenderLayers
+import com.github.noamm9.utils.render.Render3D
 import com.github.noamm9.utils.render.RenderContext
 import com.github.noamm9.utils.world.WorldUtils
 import kotlinx.coroutines.launch
-import net.minecraft.client.renderer.ShapeRenderer
 import net.minecraft.core.BlockPos
 import net.minecraft.sounds.SoundEvents
 import net.minecraft.world.level.block.Blocks
@@ -253,7 +253,7 @@ object SimonSays: Feature("Simon Says Solver") {
     private fun renderSSBox(ctx: RenderContext, pos: BlockPos, color: Color) {
         val consumers = ctx.consumers ?: return
         val matrices = ctx.matrixStack ?: return
-        val cam = ctx.camera.position.reverse()
+        val cam = ctx.camera.position().reverse()
 
         val w = 0.4 / 2.0
         val h = 0.26 / 2.0
@@ -271,7 +271,7 @@ object SimonSays: Feature("Simon Says Solver") {
         matrices.pushPose()
         matrices.translate(cam.x, cam.y, cam.z)
 
-        ShapeRenderer.addChainedFilledBoxVertices(
+        Render3D.filledBox(
             matrices,
             consumers.getBuffer(NoammRenderLayers.FILLED_THROUGH_WALLS),
             minX, minY, minZ,

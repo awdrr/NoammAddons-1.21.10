@@ -14,6 +14,7 @@ while read -r line; do
   [ -z "$line" ] && continue
   case "$line" in
     pkg:*) echo "===== package ${line#pkg:}"; unzip -l "$JAR" | grep -o "${line#pkg:}[^ ]*\.class" | grep -v '\$' | head -80 ;;
+    priv:*) spec="${line#priv:}"; cls="${spec%% *}"; pat="${spec#* }"; echo "===== (private) $cls ~ $pat"; javap -cp "$JAR" -p "$cls" 2>&1 | grep -E "$pat" | head -60 ;;
     grep:*) spec="${line#grep:}"; cls="${spec%% *}"; pat="${spec#* }"; echo "===== $cls ~ $pat"; javap -cp "$JAR" -public "$cls" 2>&1 | grep -E "$pat" | head -60 ;;
     *) echo "===== $line"; javap -cp "$JAR" -public "$line" 2>&1 | head -120 ;;
   esac

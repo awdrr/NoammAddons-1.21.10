@@ -1,10 +1,6 @@
-pkg:net/minecraft/client/renderer/rendertype/
-net.minecraft.client.renderer.rendertype.RenderType
-net.minecraft.client.renderer.rendertype.RenderSetup
-net.minecraft.client.renderer.rendertype.RenderSetup$RenderSetupBuilder
-net.minecraft.client.renderer.rendertype.LayeringTransform
-grep:net.minecraft.client.renderer.rendertype.RenderTypes lines|debug|LINES|Lines
-grep:net.minecraft.client.renderer.RenderPipelines LINES|DEBUG_FILLED|DEBUG_QUADS|register|SNIPPET
-grep:com.mojang.blaze3d.vertex.VertexConsumer Line|addVertex|setNormal
-grep:com.mojang.blaze3d.vertex.DefaultVertexFormat LINE|POSITION_COLOR
-grep:net.minecraft.client.renderer.ShapeRenderer static
+priv:net.minecraft.client.renderer.rendertype.RenderType class|create
+priv:net.minecraft.client.renderer.RenderPipelines class|LINES_SNIPPET|DEBUG_FILLED_SNIPPET|register
+grep:net.minecraft.client.Camera position|Rot|class
+grep:net.minecraft.client.gui.screens.Screen class| init|resize
+net.minecraft.client.gui.components.AbstractButton
+priv:net.minecraft.client.gui.components.Button class|render|abstract

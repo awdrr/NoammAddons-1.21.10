@@ -18,7 +18,6 @@ import com.github.noamm9.utils.render.Render2D
 import com.github.noamm9.utils.render.Render3D
 import com.github.noamm9.utils.render.RenderContext
 import com.github.noamm9.utils.render.RenderHelper.renderVec
-import net.minecraft.client.renderer.ShapeRenderer
 import net.minecraft.network.protocol.game.*
 import net.minecraft.world.entity.boss.enderdragon.EnderDragon
 import net.minecraft.world.level.block.Blocks
@@ -175,16 +174,16 @@ object WitherDragons: Feature(
     private fun drawDragonBox(ctx: RenderContext, aabb: AABB, color: Color) {
         val mstack = ctx.matrixStack ?: return
         val consumers = ctx.consumers ?: return
-        val camPos = ctx.camera.position
+        val camPos = ctx.camera.position()
 
         mstack.pushPose()
         mstack.translate(- camPos.x, - camPos.y, - camPos.z)
 
-        ShapeRenderer.renderLineBox(
+        Render3D.lineBox(
             mstack.last(),
-            consumers.getBuffer(NoammRenderLayers.getLines(2.0)),
-            aabb,
-            color.red / 255f, color.green / 255f, color.blue / 255f, 1f
+            consumers.getBuffer(NoammRenderLayers.LINES),
+            aabb.minX, aabb.minY, aabb.minZ, aabb.maxX, aabb.maxY, aabb.maxZ,
+            color.red / 255f, color.green / 255f, color.blue / 255f, 1f, 2f
         )
 
         mstack.popPose()

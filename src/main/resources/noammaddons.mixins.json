@@ -36,6 +36,7 @@
     "IKeyMapping",
     "ILerpingBossEvent",
     "IPlayerTabOverlay",
+    "IRenderType",
     "KeyboardMixin",
     "MixinAbstractClientPlayer",
     "MixinAbstractContainerScreen",

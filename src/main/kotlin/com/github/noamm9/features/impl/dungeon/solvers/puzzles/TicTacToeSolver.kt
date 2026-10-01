@@ -12,9 +12,9 @@ import com.github.noamm9.utils.ThreadUtils
 import com.github.noamm9.utils.Utils.equalsOneOf
 import com.github.noamm9.utils.dungeons.map.core.RoomState
 import com.github.noamm9.utils.render.NoammRenderLayers
+import com.github.noamm9.utils.render.Render3D
 import com.github.noamm9.utils.render.RenderContext
 import com.github.noamm9.utils.world.WorldUtils
-import net.minecraft.client.renderer.ShapeRenderer
 import net.minecraft.core.BlockPos
 import net.minecraft.core.Direction
 import net.minecraft.core.component.DataComponents
@@ -184,7 +184,7 @@ object TicTacToeSolver {
         val matrices = ctx.matrixStack ?: return
         val rotation = rotation ?: return
         if (WorldUtils.getBlockAt(pos) != Blocks.STONE_BUTTON) return
-        val cam = ctx.camera.position.reverse()
+        val cam = ctx.camera.position().reverse()
 
         val halfWidth = 0.2
         val halfHeight = 0.13
@@ -236,7 +236,7 @@ object TicTacToeSolver {
         matrices.pushPose()
         matrices.translate(cam.x, cam.y, cam.z)
 
-        ShapeRenderer.addChainedFilledBoxVertices(
+        Render3D.filledBox(
             matrices,
             consumers.getBuffer(NoammRenderLayers.FILLED_THROUGH_WALLS),
             minX, minY, minZ,

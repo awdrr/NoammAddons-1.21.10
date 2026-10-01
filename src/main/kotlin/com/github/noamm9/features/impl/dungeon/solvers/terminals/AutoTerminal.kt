@@ -159,7 +159,7 @@ object AutoTerminal: Feature("Automatically clicks terminals for you.") {
 
     private fun sendClickPacket(slot: Int) {
         mc.gameMode?.handleInventoryMouseClick(
-            TerminalListener.lastWindowId, slot, 2, ClickType.CLONE, mc.player
+            TerminalListener.lastWindowId, slot, 2, ClickType.CLONE, mc.player ?: return
         )
     }
 
