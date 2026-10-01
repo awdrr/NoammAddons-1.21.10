@@ -1,0 +1,10 @@
+pkg:net/minecraft/client/renderer/rendertype/
+net.minecraft.client.renderer.rendertype.RenderType
+net.minecraft.client.renderer.rendertype.RenderSetup
+net.minecraft.client.renderer.rendertype.RenderSetup$RenderSetupBuilder
+net.minecraft.client.renderer.rendertype.LayeringTransform
+grep:net.minecraft.client.renderer.rendertype.RenderTypes lines|debug|LINES|Lines
+grep:net.minecraft.client.renderer.RenderPipelines LINES|DEBUG_FILLED|DEBUG_QUADS|register|SNIPPET
+grep:com.mojang.blaze3d.vertex.VertexConsumer Line|addVertex|setNormal
+grep:com.mojang.blaze3d.vertex.DefaultVertexFormat LINE|POSITION_COLOR
+grep:net.minecraft.client.renderer.ShapeRenderer static

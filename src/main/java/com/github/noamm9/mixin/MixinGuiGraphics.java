@@ -5,7 +5,7 @@ import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.screens.inventory.tooltip.ClientTooltipComponent;
 import net.minecraft.client.gui.screens.inventory.tooltip.ClientTooltipPositioner;
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.resources.Identifier;
 import org.jetbrains.annotations.Nullable;
 import org.joml.Matrix3x2fStack;
 import org.spongepowered.asm.mixin.Final;
@@ -22,7 +22,7 @@ public abstract class MixinGuiGraphics {
     @Shadow @Final private Matrix3x2fStack pose;
 
     @Inject(method = "renderTooltip", at = @At("HEAD"), cancellable = true)
-    private void onRenderTooltipPre(Font font, List<ClientTooltipComponent> list, int i, int j, ClientTooltipPositioner clientTooltipPositioner, @Nullable ResourceLocation resourceLocation, CallbackInfo ci) {
+    private void onRenderTooltipPre(Font font, List<ClientTooltipComponent> list, int i, int j, ClientTooltipPositioner clientTooltipPositioner, @Nullable Identifier resourceLocation, CallbackInfo ci) {
         if (list.isEmpty()) {
             ci.cancel();
             return;

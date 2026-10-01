@@ -151,7 +151,7 @@ object SoundGui: Screen(Component.literal("SoundManager")) {
         lastCategory = selectedCategory
 
         val rawList = BuiltInRegistries.SOUND_EVENT.entrySet()
-            .map { it.key.location().toString() }
+            .map { it.key.identifier().toString() }
             .filter { it.contains(searchQuery, ignoreCase = true) }
             .filter { selectedCategory == "All" || getCategory(it) == selectedCategory }
 

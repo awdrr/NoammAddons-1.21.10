@@ -13,7 +13,7 @@ import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen;
 import net.minecraft.client.input.KeyEvent;
 import net.minecraft.client.input.MouseButtonEvent;
 import net.minecraft.network.chat.Component;
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.resources.Identifier;
 import net.minecraft.world.inventory.Slot;
 import net.minecraft.world.inventory.tooltip.TooltipComponent;
 import net.minecraft.world.item.ItemStack;
@@ -85,8 +85,8 @@ public abstract class MixinAbstractContainerScreen extends Screen {
         EventBus.post(new ContainerEvent.MouseScroll(this, mouseX, mouseY, horizontalAmount, verticalAmount));
     }
 
-    @WrapOperation(method = "renderTooltip", at = @At(value = "INVOKE", target = "Lnet/minecraft/client/gui/GuiGraphics;setTooltipForNextFrame(Lnet/minecraft/client/gui/Font;Ljava/util/List;Ljava/util/Optional;IILnet/minecraft/resources/ResourceLocation;)V"))
-    private void onRenderTooltipMerged(GuiGraphics instance, Font font, List<Component> lines, Optional<TooltipComponent> tooltipImage, int x, int y, @Nullable ResourceLocation background, Operation<Void> original, @Local ItemStack stack) {
+    @WrapOperation(method = "renderTooltip", at = @At(value = "INVOKE", target = "Lnet/minecraft/client/gui/GuiGraphics;setTooltipForNextFrame(Lnet/minecraft/client/gui/Font;Ljava/util/List;Ljava/util/Optional;IILnet/minecraft/resources/Identifier;)V"))
+    private void onRenderTooltipMerged(GuiGraphics instance, Font font, List<Component> lines, Optional<TooltipComponent> tooltipImage, int x, int y, @Nullable Identifier background, Operation<Void> original, @Local ItemStack stack) {
         if (stack == null || stack.isEmpty()) original.call(instance, font, lines, tooltipImage, x, y, background);
         else {
             ScrollableTooltip.setSlot(this.hoveredSlot.index);
