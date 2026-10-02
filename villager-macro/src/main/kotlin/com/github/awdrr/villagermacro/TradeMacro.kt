@@ -67,7 +67,7 @@ object TradeMacro {
 
     private const val STRING_TIMEOUT_MS = 5_000L
     private const val STRING_RETRY_MS = 30_000L
-    private const val PREFETCH_BELOW = 4 * 64
+    private const val PREFETCH_BELOW = 12 * 64
 
     // Vanilla servers kick for spam above 200 points: +20 per chat message or command, -1 every tick.
     // Stay well under it (bursts are fine, ~1 command a second is sustainable) and leave room for your own chat.
@@ -79,6 +79,8 @@ object TradeMacro {
     private const val MIN_RECIPE_INTERVAL_MS = 250L
 
     private const val PAYMENT_SLOT = 0
+    /** The trade's second payment slot. The string trade doesn't use it, so it briefly holds an emerald while making room. */
+    private const val PARK_SLOT = 1
     private val TRADE_INV_SLOTS = 3 .. 38
     private const val TRADE_RESULT_SLOT = 2
     private const val CRAFT_RESULT_SLOT = 0
@@ -386,6 +388,12 @@ object TradeMacro {
         }
 
         val carried = menu.carried
+        // Finish making room for an emerald first (see makeRoomStep), it has one on the cursor or parked.
+        if (carried.`is`(Items.EMERALD) || menu.getSlot(PARK_SLOT).item.`is`(Items.EMERALD)) {
+            if (makeRoomStep(menu)) return
+            needsCrafting = true
+            return closeMenu(State.FIND_VILLAGER)
+        }
         if (! carried.isEmpty) return placeCarriedString(menu, carried, menu.getSlot(PAYMENT_SLOT).item)
 
         if (offer.isOutOfStock) {
@@ -445,8 +453,14 @@ object TradeMacro {
             }
         }
 
-        // No room for the emerald even with the string moved into the payment slot.
+        // No room for the next emerald. If string is what's filling the inventory (/string fills every empty slot),
+        // make room instead of crafting: trade once onto the cursor, then makeRoomStep() takes it from there.
         if (! canFit(Items.EMERALD)) {
+            val roomAfterOneTrade = 64 - (paidString(menu) - cost)
+            if (menu.carried.isEmpty && ! menu.getSlot(PARK_SLOT).hasItem() && smallStringStack(menu, roomAfterOneTrade) != null) {
+                usesAtClick = offer.uses
+                return click(TRADE_RESULT_SLOT, 0, ClickType.PICKUP)
+            }
             needsCrafting = true
             return closeMenu(State.FIND_VILLAGER)
         }
@@ -458,6 +472,50 @@ object TradeMacro {
     }
 
     private fun paidString(menu: MerchantMenu) = menu.getSlot(PAYMENT_SLOT).item.let { if (it.`is`(Items.STRING)) it.count else 0 }
+
+    /**
+     * Makes room for an emerald that was traded onto the cursor, one click per call:
+     * park it in the second payment slot, merge a small string stack into the payment slot (which empties its
+     * inventory slot), then pick the emerald back up and put it in that slot. Returns false if it can't go on.
+     */
+    private fun makeRoomStep(menu: MerchantMenu): Boolean {
+        val carried = menu.carried
+        val parked = menu.getSlot(PARK_SLOT).item
+        val emptySlot = pickupSource.takeIf { it in TRADE_INV_SLOTS && ! menu.getSlot(it).hasItem() }
+            ?: TRADE_INV_SLOTS.firstOrNull { ! menu.getSlot(it).hasItem() }
+
+        when {
+            carried.`is`(Items.EMERALD) -> when {
+                emptySlot != null -> click(emptySlot, 0, ClickType.PICKUP)
+                parked.isEmpty -> click(PARK_SLOT, 0, ClickType.PICKUP)
+                else -> return false
+            }
+
+            carried.`is`(Items.STRING) -> placeCarriedString(menu, carried, menu.getSlot(PAYMENT_SLOT).item)
+
+            parked.`is`(Items.EMERALD) -> {
+                if (emptySlot != null) click(PARK_SLOT, 0, ClickType.PICKUP)
+                else {
+                    val stack = smallStringStack(menu, 64 - paidString(menu)) ?: return false
+                    pickupSource = stack
+                    click(stack, 0, ClickType.PICKUP)
+                }
+            }
+
+            else -> return false
+        }
+        lastStringTotal = stringIn(menu)
+        return true
+    }
+
+    /** Smallest string stack that fits into the payment slot whole (at most [room] string). */
+    private fun smallStringStack(menu: MerchantMenu, room: Int): Int? {
+        val payment = menu.getSlot(PAYMENT_SLOT).item
+        return TRADE_INV_SLOTS.filter {
+            val stack = menu.getSlot(it).item
+            stack.`is`(Items.STRING) && stack.count <= room && (payment.isEmpty || ItemStack.isSameItemSameComponents(stack, payment))
+        }.minByOrNull { menu.getSlot(it).item.count }
+    }
 
     /** Drops picked up string onto the payment slot (it holds up to a stack), then puts whatever is left back. */
     private fun placeCarriedString(menu: MerchantMenu, carried: ItemStack, payment: ItemStack) {
