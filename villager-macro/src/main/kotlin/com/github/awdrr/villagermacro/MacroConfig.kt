@@ -33,6 +33,12 @@ object MacroConfig {
      */
     var chatLimit = false
 
+    /**
+     * Throws the emeralds out while trading (for when you only want the XP) instead of crafting them into blocks
+     * and storing them in the chest. Then no crafting table or chest is needed.
+     */
+    var dropEmeralds = true
+
     /** Prints /string timings in chat (not saved). */
     var debug = false
 
@@ -49,6 +55,7 @@ object MacroConfig {
         props.getProperty("stringCommand")?.removePrefix("/")?.trim()?.takeIf { it.isNotEmpty() }?.let { stringCommand = it }
         props.getProperty("craftAtFreeSlots")?.toIntOrNull()?.let { craftAtFreeSlots = it.coerceIn(0, 36) }
         props.getProperty("chatLimit")?.let { chatLimit = it.toBoolean() }
+        props.getProperty("dropEmeralds")?.let { dropEmeralds = it.toBoolean() }
     }
 
     fun save() {
@@ -60,6 +67,7 @@ object MacroConfig {
         props.setProperty("stringCommand", stringCommand)
         props.setProperty("craftAtFreeSlots", craftAtFreeSlots.toString())
         props.setProperty("chatLimit", chatLimit.toString())
+        props.setProperty("dropEmeralds", dropEmeralds.toString())
         runCatching { Files.newOutputStream(file).use { props.store(it, "Villager Trade Macro") } }
     }
 }

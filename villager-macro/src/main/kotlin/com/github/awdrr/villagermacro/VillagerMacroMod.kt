@@ -83,6 +83,9 @@ object VillagerMacroMod: ClientModInitializer {
                             chat("§7/string is now sent as fast as it's needed. If the server kicks you for spamming, use §f/villagermacro chatlimit on§7.")
                             saved(it)
                         }))
+                    .then(literal("emeralds")
+                        .then(literal("drop").executes { MacroConfig.dropEmeralds = true; saved(it) })
+                        .then(literal("keep").executes { MacroConfig.dropEmeralds = false; saved(it) }))
             )
         }
     }
@@ -123,7 +126,8 @@ object VillagerMacroMod: ClientModInitializer {
                 " §7| Rotation: §f${MacroConfig.rotationTime} ms §7| Restock check: §f${MacroConfig.restockDelay} s" +
                 " §7| String command: §f/${MacroConfig.stringCommand}" +
                 " §7| Craft at: §f${MacroConfig.craftAtFreeSlots} free slots" +
-                " §7| Chat limit: ${if (MacroConfig.chatLimit) "§aon" else "§coff"}"
+                " §7| Chat limit: ${if (MacroConfig.chatLimit) "§aon" else "§coff"}" +
+                " §7| Emeralds: §f${if (MacroConfig.dropEmeralds) "drop" else "keep (craft and store)"}"
         ))
     }
 }

@@ -41,6 +41,7 @@ import kotlin.random.Random
  * Trades string to villagers for emeralds, running the string command (/string) whenever it runs out.
  * Once the inventory has no room left for emeralds it crafts them into blocks at the crafting table
  * under the chest, stores the blocks in the chest and goes back to trading.
+ * Or, with emeralds set to drop, it throws them out of the trade menu as they come in and just keeps trading.
  * When every villager is sold out it waits for them to restock.
  */
 object TradeMacro {
@@ -89,9 +90,16 @@ object TradeMacro {
 
     private const val STORE_CLICK_DELAY_MS = 500L
 
+    /** How far (blocks) to look for a fire to throw the emeralds into. */
+    private const val FIRE_RANGE = 4
+    /** An item on an ordinary block (friction 0.6) keeps this much of its speed each tick. */
+    private const val GROUND_FRICTION = 0.6 * 0.98
+
     private const val PAYMENT_SLOT = 0
     /** The trade's second payment slot. The string trade doesn't use it, so it briefly holds an emerald while making room. */
     private const val PARK_SLOT = 1
+    /** Clicking here drops what's on the cursor, like clicking outside the window. */
+    private const val OUTSIDE_SLOT = - 999
     private val TRADE_INV_SLOTS = 3 .. 38
     private const val TRADE_RESULT_SLOT = 2
     private const val CRAFT_RESULT_SLOT = 0
@@ -110,6 +118,8 @@ object TradeMacro {
     private var nextStoreClickAt = 0L
     private var openAttempts = 0
     private var rotation: HumanTurn? = null
+    private var fireAim: Vec3? = null
+    private var fireAimFrom: Vec3? = null
     private var level: ClientLevel? = null
 
     private var villager: Entity? = null
@@ -151,6 +161,7 @@ object TradeMacro {
 
     private var tradesDone = 0
     private var blocksStored = 0
+    private var emeraldsDropped = 0
     private var statusTicks = 0
 
     fun toggle() = if (running) stop("§cStopped.", closeMenu = true) else start()
@@ -159,7 +170,7 @@ object TradeMacro {
         if (running) return
         if (mc.player == null) return
         if (villagersInReach().isEmpty()) return chat("§cNo villagers within reach!")
-        locateStations()?.let { return chat("§c$it") }
+        if (! MacroConfig.dropEmeralds) locateStations()?.let { return chat("§c$it") }
 
         villagerCooldowns.clear()
         ignoredVillagers.clear()
@@ -171,6 +182,8 @@ object TradeMacro {
         stringPendingSince = 0L
         tradesDone = 0
         blocksStored = 0
+        emeraldsDropped = 0
+        fireAimFrom = null
         level = mc.level
         lastClockAt = 0L
         stateSince = System.currentTimeMillis()
@@ -272,16 +285,24 @@ object TradeMacro {
         val inventoryFull = needsCrafting || (! hasString && (! canFit(Items.EMERALD) || ! canFit(Items.STRING)))
         if (inventoryFull) {
             needsCrafting = false
-            if (countItem(Items.EMERALD) >= 9) return startCrafting()
-            if (countItem(Items.EMERALD_BLOCK) > 0) return startStoring()
-            return stop("§cYour inventory is full!")
+            // Dropping emeralds: the trade menu throws them out (see emeraldToDrop), so just go trade.
+            if (MacroConfig.dropEmeralds) {
+                if (countItem(Items.EMERALD) == 0) return stop("§cYour inventory is full!")
+            }
+            else {
+                if (countItem(Items.EMERALD) >= 9) return startCrafting()
+                if (countItem(Items.EMERALD_BLOCK) > 0) return startStoring()
+                return stop("§cYour inventory is full!")
+            }
         }
 
         if (! hasString) {
             // /string only fills empty slots, so with just a few left it barely gives anything.
             // Turn the emeralds into blocks and store them first to make room for a full refill.
             if (shouldCraftBeforeString()) return startCrafting()
-            return setState(State.GET_STRING)
+            // Dropping emeralds: throw them out in the trade menu first, which then asks for string itself,
+            // so /string fills their slots too.
+            if (! MacroConfig.dropEmeralds || countItem(Items.EMERALD) == 0) return setState(State.GET_STRING)
         }
 
         nextVillager()?.let {
@@ -373,7 +394,7 @@ object TradeMacro {
         if (empty < MIN_PREFETCH_SLOTS) return false
         // Slots holding string empty out as it's used, so this is what /string could fill once it's all traded.
         // At or under craft-at, crafting comes first (see shouldCraftBeforeString), so don't ask now.
-        if (empty + stringSlots() <= MacroConfig.craftAtFreeSlots) return false
+        if (! MacroConfig.dropEmeralds && empty + stringSlots() <= MacroConfig.craftAtFreeSlots) return false
         // Chat limit nearly used up: make every /string count by waiting until the string is gone, so it fills the most slots.
         if (MacroConfig.chatLimit && spamScore + 2 * SPAM_PER_COMMAND > SPAM_LIMIT) return false
         val rate = stringPerMs() ?: return total < PREFETCH_BELOW
@@ -422,7 +443,9 @@ object TradeMacro {
         if (! interactSent) {
             if (! clearScreen()) return
             val box = target.boundingBox
-            val aim = Vec3(
+            // Dropping emeralds next to a fire: open it while looking where thrown stacks land in the fire,
+            // since they're thrown wherever you look and the trade menu keeps that view.
+            val aim = (if (MacroConfig.dropEmeralds) fireThrowAim() else null) ?: Vec3(
                 box.center.x + rand(- 0.15, 0.15) * box.xsize,
                 box.minY + rand(0.55, 0.85) * box.ysize,
                 box.center.z + rand(- 0.15, 0.15) * box.zsize
@@ -482,6 +505,17 @@ object TradeMacro {
         }
 
         val carried = menu.carried
+        if (MacroConfig.dropEmeralds) {
+            if (carried.`is`(Items.EMERALD)) {
+                emeraldsDropped += carried.count
+                return click(OUTSIDE_SLOT, 0, ClickType.PICKUP)
+            }
+            if (carried.isEmpty) emeraldToDrop(menu, all = stringIn(menu) < cost)?.let {
+                emeraldsDropped += menu.getSlot(it).item.count
+                // Like Ctrl+Q on the stack.
+                return click(it, 1, ClickType.THROW)
+            }
+        }
         // Finish making room for an emerald first (see makeRoomStep), it has one on the cursor or parked.
         if (carried.`is`(Items.EMERALD) || menu.getSlot(PARK_SLOT).item.`is`(Items.EMERALD)) {
             if (makeRoomStep(menu)) return
@@ -556,7 +590,9 @@ object TradeMacro {
         // make room instead of crafting: trade once onto the cursor, then makeRoomStep() takes it from there.
         if (! canFit(Items.EMERALD)) {
             val roomAfterOneTrade = 64 - (paidString(menu) - cost)
-            if (menu.carried.isEmpty && ! menu.getSlot(PARK_SLOT).hasItem() && smallStringStack(menu, roomAfterOneTrade) != null) {
+            // When dropping emeralds the one on the cursor simply gets thrown out next.
+            val canMakeRoom = MacroConfig.dropEmeralds || smallStringStack(menu, roomAfterOneTrade) != null
+            if (menu.carried.isEmpty && ! menu.getSlot(PARK_SLOT).hasItem() && canMakeRoom) {
                 usesAtClick = offer.uses
                 return click(TRADE_RESULT_SLOT, 0, ClickType.PICKUP)
             }
@@ -605,6 +641,95 @@ object TradeMacro {
         }
         trackString(stringOnHand())
         return true
+    }
+
+    /**
+     * Dropping emeralds: the emerald stack to throw out next. Full stacks always go, and one partial stack stays for
+     * the next trades to fill, unless [all] (out of string: then /string can fill its slot too).
+     */
+    private fun emeraldToDrop(menu: MerchantMenu, all: Boolean): Int? {
+        if (menu.getSlot(PARK_SLOT).item.`is`(Items.EMERALD)) return PARK_SLOT
+        val stacks = TRADE_INV_SLOTS.filter { isPlain(menu.getSlot(it).item, Items.EMERALD) }
+        stacks.firstOrNull { menu.getSlot(it).item.let { stack -> stack.count >= stack.maxStackSize } }?.let { return it }
+        if (all) return stacks.firstOrNull()
+        return stacks.sortedByDescending { menu.getSlot(it).item.count }.drop(1).firstOrNull()
+    }
+
+    /**
+     * Dropping emeralds: a point to look at so that stacks thrown from the trade menu come to rest in a fire
+     * (fire on netherrack never goes out), or null if there's no fire close enough. The nearest one wins.
+     */
+    private fun fireThrowAim(): Vec3? {
+        val player = mc.player ?: return null
+        val level = mc.level ?: return null
+        val eye = player.eyePosition
+        if (fireAimFrom?.let { it.distanceToSqr(eye) < 1.0e-4 } == true) return fireAim
+        fireAimFrom = eye
+        fireAim = null
+
+        var nearest = Double.MAX_VALUE
+        var fire: BlockPos? = null
+        var firePitch = 0f
+        val feet = player.blockPosition()
+        for (pos in BlockPos.betweenClosed(feet.offset(- FIRE_RANGE, - 3, - FIRE_RANGE), feet.offset(FIRE_RANGE, 1, FIRE_RANGE))) {
+            val block = level.getBlockState(pos).block
+            if (block != Blocks.FIRE && block != Blocks.SOUL_FIRE) continue
+            val dx = pos.x + 0.5 - eye.x
+            val dz = pos.z + 0.5 - eye.z
+            val distance = sqrt(dx * dx + dz * dz)
+            if (distance >= nearest) continue
+            // Thrown items start 0.3 below the eyes and come to rest on the block the fire is on.
+            val pitch = throwPitchFor(distance, eye.y - 0.3 - pos.y) ?: continue
+            val yaw = - atan2(dx, dz)
+            val pitchRad = Math.toRadians(pitch.toDouble())
+            nearest = distance
+            fire = pos.immutable()
+            firePitch = pitch
+            fireAim = eye.add(- sin(yaw) * cos(pitchRad) * 2, - sin(pitchRad) * 2, cos(yaw) * cos(pitchRad) * 2)
+        }
+        fire?.let { debug("throwing the emeralds into the fire at ${it.x} ${it.y} ${it.z} (looking ${"%.1f".format(firePitch)}° down)") }
+        return fireAim
+    }
+
+    /** Pitch at which a thrown item comes to rest [distance] blocks away and [drop] blocks lower, or null if none does. */
+    private fun throwPitchFor(distance: Double, drop: Double): Float? {
+        var best: Float? = null
+        var bestError = 0.25
+        var pitch = - 30f
+        while (pitch <= 85f) {
+            val error = abs(throwRestDistance(pitch, drop) - distance)
+            if (error < bestError) {
+                best = pitch
+                bestError = error
+            }
+            pitch += 0.25f
+        }
+        return best
+    }
+
+    /**
+     * How far away an item thrown from a menu (Q, Ctrl+Q or clicking outside) at [pitch] stops, [drop] blocks lower.
+     * Vanilla throws it at 0.3 blocks/tick where you look plus 0.1 up, then it falls 0.04 a tick with 2% air drag,
+     * and slides to a stop once it lands.
+     */
+    private fun throwRestDistance(pitch: Float, drop: Double): Double {
+        val radians = Math.toRadians(pitch.toDouble())
+        var speed = 0.3 * cos(radians)
+        var up = - 0.3 * sin(radians) + 0.1
+        var x = 0.0
+        var y = drop
+        repeat(200) {
+            up -= 0.04
+            x += speed
+            y += up
+            if (y <= 0) {
+                speed *= GROUND_FRICTION
+                return x + speed / (1 - GROUND_FRICTION)
+            }
+            speed *= 0.98
+            up *= 0.98
+        }
+        return x
     }
 
     /** Smallest string stack that fits into the payment slot whole (at most [room] string). */
@@ -1037,7 +1162,8 @@ object TradeMacro {
             else -> state.label
         }
         var line = "§bVillager Macro §7- §f$label §7| §a${countItem(Items.EMERALD)} emeralds §7| §f${stringCount()} string" +
-            " §7| Trades: §f$tradesDone §7| Blocks stored: §a$blocksStored"
+            " §7| Trades: §f$tradesDone" +
+            if (MacroConfig.dropEmeralds) " §7| Dropped: §f$emeraldsDropped emeralds" else " §7| Blocks stored: §a$blocksStored"
 
         val now = System.currentTimeMillis()
         val nextCheck = when (state) {
@@ -1056,7 +1182,7 @@ object TradeMacro {
         if (index != TRADE_RESULT_SLOT && slot.item.`is`(Items.STRING)) slot.item.count else 0
     }
 
-    private fun shouldCraftBeforeString() = emptySlots() <= MacroConfig.craftAtFreeSlots && countItem(Items.EMERALD) >= 9
+    private fun shouldCraftBeforeString() = ! MacroConfig.dropEmeralds && emptySlots() <= MacroConfig.craftAtFreeSlots && countItem(Items.EMERALD) >= 9
 
     private fun rand(from: Double, to: Double) = from + Random.nextDouble() * (to - from)
 
