@@ -5,7 +5,7 @@ A small client-side mod that applies the enchanted books in your inventory to yo
 ## Install
 
 1. Install [Fabric Loader](https://fabricmc.net/use/installer/) for **1.21.11** and put **Fabric API** in your `mods` folder.
-2. Get `autoanvil-1.0.0.jar` from the **AutoAnvil** artifact of the latest `auto-anvil` GitHub Actions run (or build it yourself with `./gradlew build` in this folder; the jar ends up in `build/libs/`).
+2. Get `autoanvil-1.0.0.jar` from the **AutoAnvil** artifact of the latest `auto-anvil` GitHub Actions run (or build it yourself with `./gradlew build` in this folder using **JDK 25**; the jar ends up in `build/libs/` and runs on Minecraft's normal Java 21).
 3. Drop it into `.minecraft/mods`.
 
 ## Use
