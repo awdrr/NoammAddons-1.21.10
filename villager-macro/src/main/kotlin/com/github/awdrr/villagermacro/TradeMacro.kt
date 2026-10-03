@@ -1,6 +1,8 @@
 package com.github.awdrr.villagermacro
 
 import com.github.awdrr.villagermacro.VillagerMacroMod.chat
+import net.fabricmc.fabric.api.client.keybinding.v1.KeyBindingHelper
+import net.minecraft.client.KeyMapping
 import net.minecraft.client.Minecraft
 import net.minecraft.client.gui.screens.PauseScreen
 import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen
@@ -25,6 +27,7 @@ import net.minecraft.world.item.ItemStack
 import net.minecraft.world.item.Items
 import net.minecraft.world.item.crafting.display.SlotDisplayContext
 import net.minecraft.world.item.trading.MerchantOffer
+import net.minecraft.world.level.ClipContext
 import net.minecraft.world.level.block.Block
 import net.minecraft.world.level.block.Blocks
 import net.minecraft.world.phys.AABB
@@ -78,6 +81,8 @@ object TradeMacro {
     private const val SERVER_TIMEOUT = 40
     private const val MIN_RECIPE_INTERVAL_MS = 250L
 
+    private const val STORE_CLICK_DELAY_MS = 500L
+
     private const val PAYMENT_SLOT = 0
     /** The trade's second payment slot. The string trade doesn't use it, so it briefly holds an emerald while making room. */
     private const val PARK_SLOT = 1
@@ -98,6 +103,8 @@ object TradeMacro {
     private var waitTicks = 0
     private var stateTicks = 0
     private var interactSent = false
+    private var aimMisses = 0
+    private var nextStoreClickAt = 0L
     private var openAttempts = 0
     private var rotation: Rotation? = null
     private var level: ClientLevel? = null
@@ -224,6 +231,8 @@ object TradeMacro {
         waitTicks = delay
         stateTicks = 0
         interactSent = false
+        aimMisses = 0
+        nextStoreClickAt = 0L
         openAttempts = 0
         rotation = null
         serverSyncId = - 1
@@ -339,7 +348,10 @@ object TradeMacro {
 
         if (! interactSent) {
             if (! clearScreen()) return
-            lookThen(target.boundingBox.center) { interactEntity(target) }
+            lookThen(target.boundingBox.center) {
+                interactEntity(target)
+                true
+            }
         }
         else if (stateTicks > OPEN_TIMEOUT) {
             // Sleeping, jobless or busy villagers never open the trade menu, try them again later.
@@ -686,6 +698,11 @@ object TradeMacro {
         val menu = mc.player !!.containerMenu as? ChestMenu ?: return setState(State.OPEN_CHEST, MacroConfig.clickDelay)
         val chestSize = menu.rowCount * 9
 
+        // Take it slow in the chest: 500 ms before each stack goes in.
+        val now = System.currentTimeMillis()
+        if (nextStoreClickAt == 0L) nextStoreClickAt = now + STORE_CLICK_DELAY_MS
+        if (now < nextStoreClickAt) return
+
         val blockSlot = (chestSize until menu.slots.size).firstOrNull { isPlain(menu.getSlot(it).item, Items.EMERALD_BLOCK) }
             ?: return closeMenu(State.FIND_VILLAGER)
 
@@ -698,6 +715,7 @@ object TradeMacro {
         val before = menu.getSlot(blockSlot).item.count
         click(blockSlot, 0, ClickType.QUICK_MOVE)
         blocksStored += before - menu.getSlot(blockSlot).item.count
+        nextStoreClickAt = now + STORE_CLICK_DELAY_MS
     }
 
     /** Opens the block at [pos] and switches to [next] once a menu matching [isMenu] is open. */
@@ -710,9 +728,9 @@ object TradeMacro {
             if (! clearScreen()) return
             // Sneaking would place the held item instead of opening the block.
             if (player.isShiftKeyDown) return
-            lookThen(blockHitResult(pos, false).location) {
-                mc.gameMode?.useItemOn(player, InteractionHand.MAIN_HAND, blockHitResult(pos, true))
-            }
+            if (aimMisses >= MAX_OPEN_ATTEMPTS) return stop("§cCouldn't get the crosshair on the $name, is something in the way?")
+            val aim = aimPoint(pos) ?: return stop("§cCan't see the $name from here (too far, or something's in the way).")
+            lookThen(aim) { rightClickBlock(pos) }
         }
         else if (stateTicks > OPEN_TIMEOUT) {
             if (++ openAttempts >= MAX_OPEN_ATTEMPTS) return stop("§cCouldn't open the $name.")
@@ -740,7 +758,8 @@ object TradeMacro {
     }
 
     /** Turns towards [target] over a few ticks, then runs [action] on the tick after the rotation finished. */
-    private fun lookThen(target: Vec3, action: () -> Unit) {
+    /** Turns towards [target], then runs [action] once the turn is done. If the action says it couldn't act, it aims again. */
+    private fun lookThen(target: Vec3, action: () -> Boolean) {
         val player = mc.player ?: return
         val rot = rotation ?: run {
             val eye = player.eyePosition
@@ -760,9 +779,11 @@ object TradeMacro {
         }
 
         rotation = null
-        action()
-        interactSent = true
-        stateTicks = 0
+        if (action()) {
+            interactSent = true
+            stateTicks = 0
+        }
+        else aimMisses ++
     }
 
     /** Called every frame (and tick) while turning, so slow turns look smooth. Returns true once the turn is done. */
@@ -796,25 +817,51 @@ object TradeMacro {
         waitTicks = MacroConfig.clickDelay
     }
 
-    /** Prefers what the crosshair is on, otherwise hits the center of the face pointing at the player. */
-    private fun blockHitResult(pos: BlockPos, useCrosshair: Boolean): BlockHitResult {
-        val crosshair = mc.hitResult
-        if (useCrosshair && crosshair is BlockHitResult && crosshair.type == HitResult.Type.BLOCK && crosshair.blockPos == pos) return crosshair
+    /**
+     * A point on [pos] that's in reach and that the crosshair would really land on from here, checked with the
+     * game's own line of sight test (so e.g. the chest above the crafting table can't be in the way).
+     * Faces pointing at the player come first, the middle of a face before its edges.
+     */
+    private fun aimPoint(pos: BlockPos): Vec3? {
+        val level = mc.level ?: return null
+        val player = mc.player ?: return null
+        val eye = player.eyePosition
+        val shape = level.getBlockState(pos).getShape(level, pos)
+        val box = if (shape.isEmpty) AABB(pos) else shape.bounds().move(pos.x.toDouble(), pos.y.toDouble(), pos.z.toDouble())
+        val center = box.center
+        val reach = player.blockInteractionRange()
 
-        val eye = mc.player !!.eyePosition
-        val center = Vec3.atCenterOf(pos)
-        val dx = eye.x - center.x
-        val dy = eye.y - center.y
-        val dz = eye.z - center.z
-
-        val face = when {
-            abs(dx) < 0.5 && abs(dz) < 0.5 -> if (dy > 0) Direction.UP else Direction.DOWN
-            abs(dx) >= abs(dz) -> if (dx > 0) Direction.EAST else Direction.WEST
-            else -> if (dz > 0) Direction.SOUTH else Direction.NORTH
+        val faces = Direction.entries.sortedByDescending {
+            (eye.x - center.x) * it.stepX + (eye.y - center.y) * it.stepY + (eye.z - center.z) * it.stepZ
         }
+        val offsets = listOf(0.0 to 0.0, 0.3 to 0.3, 0.3 to - 0.3, - 0.3 to 0.3, - 0.3 to - 0.3)
 
-        val hit = center.add(face.stepX * 0.5, face.stepY * 0.5, face.stepZ * 0.5)
-        return BlockHitResult(hit, face, pos, false)
+        for (face in faces) for ((a, b) in offsets) {
+            // Just inside the face, so the line of sight ends in the block itself.
+            val half = Vec3(box.xsize / 2, box.ysize / 2, box.zsize / 2)
+            val point = when (face.axis) {
+                Direction.Axis.X -> Vec3(center.x + face.stepX * (half.x - 0.01), center.y + a * half.y, center.z + b * half.z)
+                Direction.Axis.Y -> Vec3(center.x + a * half.x, center.y + face.stepY * (half.y - 0.01), center.z + b * half.z)
+                Direction.Axis.Z -> Vec3(center.x + a * half.x, center.y + b * half.y, center.z + face.stepZ * (half.z - 0.01))
+            }
+            if (eye.distanceTo(point) > reach) continue
+            val hit = level.clip(ClipContext(eye, point, ClipContext.Block.OUTLINE, ClipContext.Fluid.NONE, player))
+            if (hit.type == HitResult.Type.BLOCK && hit.blockPos == pos) return point
+        }
+        return null
+    }
+
+    /**
+     * Right clicks like the player would: presses the use key, and the game uses whatever the crosshair is on.
+     * Only does it when the crosshair really is on the block.
+     */
+    private fun rightClickBlock(pos: BlockPos): Boolean {
+        val hit = mc.hitResult
+        if (hit !is BlockHitResult || hit.type != HitResult.Type.BLOCK || hit.blockPos != pos) return false
+        // The game ignores key presses while a screen is open (the pause screen opens by itself when unfocused).
+        if (mc.screen is PauseScreen) mc.setScreen(null)
+        KeyMapping.click(KeyBindingHelper.getBoundKeyOf(mc.options.keyUse))
+        return true
     }
 
     /** Finds the crafting table (preferring one right under a chest) and the chest. Returns an error message if one is missing. */
