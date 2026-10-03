@@ -72,8 +72,9 @@ object TradeMacro {
     private const val STRING_RETRY_MS = 30_000L
     /** Used until there's enough history to time /string properly. */
     private const val PREFETCH_BELOW = 12 * 64
-    private const val USAGE_WINDOW_MS = 4_000L
-    private const val MIN_USAGE_SPAN_MS = 1_000L
+    private const val MIN_PREFETCH = 6 * 64
+    private const val USAGE_WINDOW_MS = 3_000L
+    private const val MIN_USAGE_SPAN_MS = 500L
 
     // Vanilla servers kick for spam above 200 points: +20 per chat message or command, -1 every tick.
     // Stay well under it (bursts are fine, ~1 command a second is sustainable) and leave room for your own chat.
@@ -123,7 +124,11 @@ object TradeMacro {
     private var lastStringTotal = 0
     private var stringLatencyMs = 400.0
     private var stringUsed = 0L
+    /** (trading clock, string used so far) samples. */
     private val usage = ArrayDeque<Pair<Long, Long>>()
+    /** Only runs while actually trading, so turning and walking between villagers don't make string look slow to use. */
+    private var tradingClockMs = 0L
+    private var lastClockAt = 0L
     private var spamScore = 0
     private var stringFails = 0
     private var nextStringAttempt = 0L
@@ -163,6 +168,7 @@ object TradeMacro {
         tradesDone = 0
         blocksStored = 0
         level = mc.level
+        lastClockAt = 0L
         running = true
         setState(State.FIND_VILLAGER)
         chat("§aStarted. §7Press the toggle key or Escape to stop.")
@@ -197,7 +203,11 @@ object TradeMacro {
         }
 
         // Notice delivered string every tick, whatever the macro is doing, so /string timing is measured right.
-        trackString(stringOnHand())
+        val now = System.currentTimeMillis()
+        val onHand = stringOnHand()
+        if (state == State.TRADING && onHand >= (cheapestTrade ?: 1) && lastClockAt != 0L) tradingClockMs += now - lastClockAt
+        lastClockAt = now
+        trackString(onHand)
 
         if (waitTicks > 0) {
             waitTicks --
@@ -317,11 +327,11 @@ object TradeMacro {
         else if (total < lastStringTotal) stringUsed += lastStringTotal - total
         lastStringTotal = total
 
-        usage.addLast(now to stringUsed)
-        while (usage.size > 2 && now - usage.first().first > USAGE_WINDOW_MS) usage.removeFirst()
+        usage.addLast(tradingClockMs to stringUsed)
+        while (usage.size > 2 && tradingClockMs - usage.first().first > USAGE_WINDOW_MS) usage.removeFirst()
     }
 
-    /** String traded away per millisecond over the last few seconds, or null without enough history yet. */
+    /** String traded away per millisecond of actual trading over the last few seconds, or null without enough history yet. */
     private fun stringPerMs(): Double? {
         val first = usage.firstOrNull() ?: return null
         val last = usage.last()
@@ -338,7 +348,7 @@ object TradeMacro {
         if (emptySlots() <= MacroConfig.craftAtFreeSlots) return false
         val rate = stringPerMs() ?: return total < PREFETCH_BELOW
         val needed = rate * (stringLatencyMs * 1.5 + 250) + 2 * 64
-        return total < max(needed, 3.0 * 64)
+        return total < max(needed, MIN_PREFETCH.toDouble())
     }
 
     private fun stringOverdue(now: Long) = stringPendingSince != 0L && now - stringPendingSince > STRING_TIMEOUT_MS
