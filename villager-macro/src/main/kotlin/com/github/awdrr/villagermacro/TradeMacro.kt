@@ -12,7 +12,6 @@ import net.minecraft.core.Direction
 import net.minecraft.network.chat.Component
 import net.minecraft.network.protocol.game.ServerboundInteractPacket
 import net.minecraft.network.protocol.game.ServerboundSelectTradePacket
-import net.minecraft.util.Mth
 import net.minecraft.world.InteractionHand
 import net.minecraft.world.entity.Entity
 import net.minecraft.world.entity.EntityType
@@ -36,6 +35,7 @@ import net.minecraft.world.phys.HitResult
 import net.minecraft.world.phys.Vec3
 import java.util.*
 import kotlin.math.*
+import kotlin.random.Random
 
 /**
  * Trades string to villagers for emeralds, running the string command (/string) whenever it runs out.
@@ -70,7 +70,10 @@ object TradeMacro {
 
     private const val STRING_TIMEOUT_MS = 5_000L
     private const val STRING_RETRY_MS = 30_000L
+    /** Used until there's enough history to time /string properly. */
     private const val PREFETCH_BELOW = 12 * 64
+    private const val USAGE_WINDOW_MS = 4_000L
+    private const val MIN_USAGE_SPAN_MS = 1_000L
 
     // Vanilla servers kick for spam above 200 points: +20 per chat message or command, -1 every tick.
     // Stay well under it (bursts are fine, ~1 command a second is sustainable) and leave room for your own chat.
@@ -92,10 +95,6 @@ object TradeMacro {
     private val CRAFT_GRID_SLOTS = 1 .. 9
     private val CRAFT_INV_SLOTS = 10 .. 45
 
-    private class Rotation(val fromYaw: Float, val fromPitch: Float, val toYaw: Float, val toPitch: Float, val durationMs: Long) {
-        val startedAt = System.currentTimeMillis()
-        var finished = false
-    }
 
     var running = false
         private set
@@ -106,7 +105,7 @@ object TradeMacro {
     private var aimMisses = 0
     private var nextStoreClickAt = 0L
     private var openAttempts = 0
-    private var rotation: Rotation? = null
+    private var rotation: HumanTurn? = null
     private var level: ClientLevel? = null
 
     private var villager: Entity? = null
@@ -122,6 +121,9 @@ object TradeMacro {
 
     private var stringPendingSince = 0L
     private var lastStringTotal = 0
+    private var stringLatencyMs = 400.0
+    private var stringUsed = 0L
+    private val usage = ArrayDeque<Pair<Long, Long>>()
     private var spamScore = 0
     private var stringFails = 0
     private var nextStringAttempt = 0L
@@ -193,6 +195,9 @@ object TradeMacro {
             statusTicks = 0
             mc.gui.setOverlayMessage(Component.literal(statusLine()), false)
         }
+
+        // Notice delivered string every tick, whatever the macro is doing, so /string timing is measured right.
+        trackString(stringOnHand())
 
         if (waitTicks > 0) {
             waitTicks --
@@ -271,7 +276,7 @@ object TradeMacro {
     /** Runs the string command and waits for string to show up in the inventory, retrying later if it doesn't. */
     private fun getString() {
         val now = System.currentTimeMillis()
-        trackString(stringCount())
+        trackString(stringOnHand())
         // String that was asked for earlier may already be here.
         if (stringCount() >= (cheapestTrade ?: 1)) return setState(State.FIND_VILLAGER)
 
@@ -301,11 +306,39 @@ object TradeMacro {
 
     /** Feed it the current string total. Only the string command makes it go up, so that marks the request as delivered. */
     private fun trackString(total: Int) {
+        val now = System.currentTimeMillis()
         if (stringPendingSince != 0L && total > lastStringTotal) {
+            // Learn how long the server takes to hand it out. A slow one counts right away, fast ones ease it down.
+            val took = (now - stringPendingSince).toDouble()
+            stringLatencyMs = max(took, stringLatencyMs * 0.75 + took * 0.25)
             stringPendingSince = 0L
             stringFails = 0
         }
+        else if (total < lastStringTotal) stringUsed += lastStringTotal - total
         lastStringTotal = total
+
+        usage.addLast(now to stringUsed)
+        while (usage.size > 2 && now - usage.first().first > USAGE_WINDOW_MS) usage.removeFirst()
+    }
+
+    /** String traded away per millisecond over the last few seconds, or null without enough history yet. */
+    private fun stringPerMs(): Double? {
+        val first = usage.firstOrNull() ?: return null
+        val last = usage.last()
+        val span = last.first - first.first
+        if (span < MIN_USAGE_SPAN_MS) return null
+        return (last.second - first.second).toDouble() / span
+    }
+
+    /**
+     * /string only fills empty slots, so asking too early hands out little and asking too late means waiting.
+     * Ask just early enough (with margin) that it arrives before running out: by then more slots have emptied.
+     */
+    private fun timeToAskForString(total: Int): Boolean {
+        if (emptySlots() <= MacroConfig.craftAtFreeSlots) return false
+        val rate = stringPerMs() ?: return total < PREFETCH_BELOW
+        val needed = rate * (stringLatencyMs * 1.5 + 250) + 2 * 64
+        return total < max(needed, 3.0 * 64)
     }
 
     private fun stringOverdue(now: Long) = stringPendingSince != 0L && now - stringPendingSince > STRING_TIMEOUT_MS
@@ -348,7 +381,13 @@ object TradeMacro {
 
         if (! interactSent) {
             if (! clearScreen()) return
-            lookThen(target.boundingBox.center) {
+            val box = target.boundingBox
+            val aim = Vec3(
+                box.center.x + rand(- 0.15, 0.15) * box.xsize,
+                box.minY + rand(0.55, 0.85) * box.ysize,
+                box.center.z + rand(- 0.15, 0.15) * box.zsize
+            )
+            lookThen(aim) {
                 interactEntity(target)
                 true
             }
@@ -365,7 +404,7 @@ object TradeMacro {
         val target = villager ?: return closeMenu(State.FIND_VILLAGER)
         val now = System.currentTimeMillis()
 
-        trackString(stringIn(menu))
+        trackString(stringOnHand())
 
         val offers = menu.offers
         if (offers.isEmpty()) {
@@ -416,7 +455,7 @@ object TradeMacro {
         // Ask for more string before running out, so it has usually arrived by the time it's needed.
         // A request that never got answered while there's still string to trade with is simply retried.
         if (stringOverdue(now) && stringIn(menu) >= cost) stringPendingSince = 0L
-        if (stringIn(menu) < PREFETCH_BELOW && emptySlots() > MacroConfig.craftAtFreeSlots) requestString(now)
+        if (timeToAskForString(stringIn(menu))) requestString(now)
 
         if (paidString(menu) < cost) {
             // Same as pressing space on the selected trade: picks it again, which refills the payment slot with string.
@@ -460,7 +499,7 @@ object TradeMacro {
 
                 pickupSource = source
                 click(source, 0, ClickType.PICKUP)
-                lastStringTotal = stringIn(menu)
+                trackString(stringOnHand())
                 return
             }
         }
@@ -480,7 +519,7 @@ object TradeMacro {
         // Shift click the output in the same tick as the refill. It keeps trading until the payment slot runs low.
         usesAtClick = offer.uses
         click(TRADE_RESULT_SLOT, 0, ClickType.QUICK_MOVE)
-        lastStringTotal = stringIn(menu)
+        trackString(stringOnHand())
     }
 
     private fun paidString(menu: MerchantMenu) = menu.getSlot(PAYMENT_SLOT).item.let { if (it.`is`(Items.STRING)) it.count else 0 }
@@ -516,7 +555,7 @@ object TradeMacro {
 
             else -> return false
         }
-        lastStringTotal = stringIn(menu)
+        trackString(stringOnHand())
         return true
     }
 
@@ -767,9 +806,8 @@ object TradeMacro {
             val dy = target.y - eye.y
             val dz = target.z - eye.z
             val yaw = Math.toDegrees(- atan2(dx, dz)).toFloat()
-            val pitch = Math.toDegrees(- atan2(dy, sqrt(dx * dx + dz * dz))).toFloat().coerceIn(- 90f, 90f)
-            Rotation(player.yRot, player.xRot, player.yRot + Mth.wrapDegrees(yaw - player.yRot), pitch, MacroConfig.rotationTime.toLong())
-                .also { rotation = it }
+            val pitch = Math.toDegrees(- atan2(dy, sqrt(dx * dx + dz * dz))).toFloat()
+            HumanTurn(player.yRot, player.xRot, yaw, pitch, MacroConfig.rotationTime).also { rotation = it }
         }
 
         // Act on the tick after the turn finished, so the server has seen where we're looking.
@@ -788,16 +826,25 @@ object TradeMacro {
 
     /** Called every frame (and tick) while turning, so slow turns look smooth. Returns true once the turn is done. */
     fun applyRotation(): Boolean {
-        val rot = rotation ?: return true
+        val turn = rotation ?: return true
         val player = mc.player ?: return true
-        val elapsed = System.currentTimeMillis() - rot.startedAt
-        val t = if (rot.durationMs <= 0) 1f else min(1f, elapsed / rot.durationMs.toFloat())
-        val eased = t * t * (3 - 2 * t)
-        player.yRot = rot.fromYaw + (rot.toYaw - rot.fromYaw) * eased
-        player.xRot = rot.fromPitch + (rot.toPitch - rot.fromPitch) * eased
+        val t = turn.progress()
+        val (yaw, pitch) = turn.angleAt(t)
+        // Move in whole mouse steps for your sensitivity, like real mouse input does.
+        val step = mouseStep()
+        player.yRot += snapToStep(yaw - player.yRot, step)
+        player.xRot = (player.xRot + snapToStep(pitch - player.xRot, step)).coerceIn(- 90f, 90f)
         player.yHeadRot = player.yRot
         return t >= 1f
     }
+
+    /** Smallest turn one pixel of mouse movement makes at the current sensitivity (vanilla's formula). */
+    private fun mouseStep(): Float {
+        val f = mc.options.sensitivity().get() * 0.6 + 0.2
+        return (f * f * f * 1.2).toFloat()
+    }
+
+    private fun snapToStep(delta: Float, step: Float) = if (step <= 0f) delta else (delta / step).roundToInt() * step
 
     fun onFrame() {
         if (running) applyRotation()
@@ -834,7 +881,9 @@ object TradeMacro {
         val faces = Direction.entries.sortedByDescending {
             (eye.x - center.x) * it.stepX + (eye.y - center.y) * it.stepY + (eye.z - center.z) * it.stepZ
         }
-        val offsets = listOf(0.0 to 0.0, 0.3 to 0.3, 0.3 to - 0.3, - 0.3 to 0.3, - 0.3 to - 0.3)
+        // A few random spots first so it doesn't always click the exact same point, then fixed ones as a fallback.
+        val offsets = List(3) { rand(- 0.35, 0.35) to rand(- 0.35, 0.35) } +
+            listOf(0.0 to 0.0, 0.3 to 0.3, 0.3 to - 0.3, - 0.3 to 0.3, - 0.3 to - 0.3)
 
         for (face in faces) for ((a, b) in offsets) {
             // Just inside the face, so the line of sight ends in the block itself.
@@ -935,9 +984,20 @@ object TradeMacro {
 
     private fun shouldCraftBeforeString() = emptySlots() <= MacroConfig.craftAtFreeSlots && countItem(Items.EMERALD) >= 9
 
+    private fun rand(from: Double, to: Double) = from + Random.nextDouble() * (to - from)
+
     private fun emptySlots() = mc.player?.inventory?.nonEquipmentItems?.count { it.isEmpty } ?: 0
 
-    private fun stringCount() =mc.player?.inventory?.nonEquipmentItems?.sumOf { if (it.`is`(Items.STRING)) it.count else 0 } ?: 0
+    /** All string the player has: inventory, plus a trade menu's payment slots and the cursor. Only /string makes it go up. */
+    private fun stringOnHand(): Int {
+        val menu = mc.player?.containerMenu ?: return stringCount()
+        var count = stringCount()
+        if (menu is MerchantMenu) count += (0 .. 1).sumOf { menu.getSlot(it).item.let { stack -> if (stack.`is`(Items.STRING)) stack.count else 0 } }
+        if (menu.carried.`is`(Items.STRING)) count += menu.carried.count
+        return count
+    }
+
+    private fun stringCount() = mc.player?.inventory?.nonEquipmentItems?.sumOf { if (it.`is`(Items.STRING)) it.count else 0 } ?: 0
 
     private fun blockAt(pos: BlockPos): Block? = mc.level?.getBlockState(pos)?.block
 
