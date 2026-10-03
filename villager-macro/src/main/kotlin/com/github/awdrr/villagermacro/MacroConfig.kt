@@ -27,6 +27,9 @@ object MacroConfig {
      */
     var craftAtFreeSlots = 10
 
+    /** Prints /string timings in chat (not saved). */
+    var debug = false
+
     private val file get() = FabricLoader.getInstance().configDir.resolve("villagermacro.properties")
 
     fun load() {

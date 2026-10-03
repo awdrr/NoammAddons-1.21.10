@@ -47,6 +47,11 @@ object VillagerMacroMod: ClientModInitializer {
                     .then(literal("start").executes { TradeMacro.start(); 1 })
                     .then(literal("stop").executes { TradeMacro.stop("§cStopped."); 1 })
                     .then(literal("settings").executes { showSettings(it.source); 1 })
+                    .then(literal("debug").executes {
+                        MacroConfig.debug = ! MacroConfig.debug
+                        chat("Debug messages ${if (MacroConfig.debug) "§aon" else "§coff"}§r.")
+                        1
+                    })
                     .then(literal("reach").then(argument("blocks", DoubleArgumentType.doubleArg(3.0, 5.5)).executes {
                         MacroConfig.reach = DoubleArgumentType.getDouble(it, "blocks")
                         saved(it)

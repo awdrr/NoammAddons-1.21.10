@@ -102,6 +102,7 @@ object TradeMacro {
     private var state = State.FIND_VILLAGER
     private var waitTicks = 0
     private var stateTicks = 0
+    private var stateSince = 0L
     private var interactSent = false
     private var aimMisses = 0
     private var nextStoreClickAt = 0L
@@ -130,6 +131,7 @@ object TradeMacro {
     private var tradingClockMs = 0L
     private var lastClockAt = 0L
     private var spamScore = 0
+    private var spamLimited = false
     private var stringFails = 0
     private var nextStringAttempt = 0L
 
@@ -169,6 +171,7 @@ object TradeMacro {
         blocksStored = 0
         level = mc.level
         lastClockAt = 0L
+        stateSince = System.currentTimeMillis()
         running = true
         setState(State.FIND_VILLAGER)
         chat("§aStarted. §7Press the toggle key or Escape to stop.")
@@ -181,7 +184,7 @@ object TradeMacro {
         villager = null
 
         if (closeMenu && state in MENU_STATES) {
-            mc.player?.takeIf { it.containerMenu !== it.inventoryMenu }?.closeContainer()
+            closeContainer()
         }
 
         mc.gui.setOverlayMessage(Component.empty(), false)
@@ -242,6 +245,11 @@ object TradeMacro {
     }
 
     private fun setState(newState: State, delay: Int = 0) {
+        val now = System.currentTimeMillis()
+        if (newState != state) {
+            debug("${state.label} took ${"%.1f".format((now - stateSince) / 1000.0)}s -> ${newState.label}")
+            stateSince = now
+        }
         state = newState
         waitTicks = delay
         stateTicks = 0
@@ -307,22 +315,34 @@ object TradeMacro {
     /** Sends the string command unless it's already on its way or the spam limit is close. True if string is on its way. */
     private fun requestString(now: Long): Boolean {
         if (stringPendingSince != 0L) return true
-        if (spamScore + SPAM_PER_COMMAND > SPAM_LIMIT) return false
+        if (spamScore + SPAM_PER_COMMAND > SPAM_LIMIT) {
+            if (! spamLimited) debug("waiting for the chat spam limit before /${MacroConfig.stringCommand}")
+            spamLimited = true
+            return false
+        }
         mc.connection?.sendCommand(MacroConfig.stringCommand) ?: return false
+        spamLimited = false
         spamScore += SPAM_PER_COMMAND
         stringPendingSince = now
+        debug("sent /${MacroConfig.stringCommand}: ${stringOnHand()} string on hand, ${emptySlots()} empty slots, spam budget ${SPAM_LIMIT - spamScore}")
         return true
+    }
+
+    private fun debug(message: String) {
+        if (MacroConfig.debug) chat("§8[debug] §7$message")
     }
 
     /** Feed it the current string total. Only the string command makes it go up, so that marks the request as delivered. */
     private fun trackString(total: Int) {
         val now = System.currentTimeMillis()
-        if (stringPendingSince != 0L && total > lastStringTotal) {
+        // /string hands out full stacks; smaller rises are just string moving around (e.g. a menu's leftovers coming back).
+        if (stringPendingSince != 0L && total >= lastStringTotal + 64) {
             // Learn how long the server takes to hand it out. A slow one counts right away, fast ones ease it down.
             val took = (now - stringPendingSince).toDouble()
             stringLatencyMs = max(took, stringLatencyMs * 0.75 + took * 0.25)
             stringPendingSince = 0L
             stringFails = 0
+            debug("string arrived: +${total - lastStringTotal} after ${took.toLong()} ms")
         }
         else if (total < lastStringTotal) stringUsed += lastStringTotal - total
         lastStringTotal = total
@@ -405,6 +425,7 @@ object TradeMacro {
         else if (stateTicks > OPEN_TIMEOUT) {
             // Sleeping, jobless or busy villagers never open the trade menu, try them again later.
             villagerCooldowns[target.uuid] = System.currentTimeMillis() + VILLAGER_RETRY_MS
+            debug("villager didn't open its trades (asleep or busy?), trying it again in 30s")
             setState(State.FIND_VILLAGER)
         }
     }
@@ -428,6 +449,7 @@ object TradeMacro {
         val index = offers.indexOfFirst(::isStringTrade)
         if (index == - 1) {
             ignoredVillagers.add(target.uuid)
+            debug("villager has no string trade, skipping it")
             return closeMenu(State.FIND_VILLAGER)
         }
 
@@ -444,6 +466,7 @@ object TradeMacro {
             }
             else if (++ tradeStalls >= MAX_STALLS) {
                 villagerCooldowns[target.uuid] = now + VILLAGER_RETRY_MS
+                debug("trades stopped going through, trying this villager again in 30s")
                 return closeMenu(State.FIND_VILLAGER)
             }
         }
@@ -459,6 +482,7 @@ object TradeMacro {
 
         if (offer.isOutOfStock) {
             villagerCooldowns[target.uuid] = now + MacroConfig.restockDelay * 1000L
+            debug("villager sold out, checking it again in ${MacroConfig.restockDelay}s (${availableVillagers()} others ready)")
             return closeMenu(State.FIND_VILLAGER)
         }
 
@@ -479,6 +503,7 @@ object TradeMacro {
                     // Can't afford this villager but a cheaper one exists: use that one.
                     if (available >= (cheapestTrade ?: cost)) {
                         villagerCooldowns[target.uuid] = now + VILLAGER_RETRY_MS
+                        debug("villager wants $cost string, going to a cheaper one")
                         return closeMenu(State.FIND_VILLAGER)
                     }
                     // String already on its way: wait for it here, with the trade menu open.
@@ -486,14 +511,17 @@ object TradeMacro {
                         if (stringOverdue(now)) {
                             stringPendingSince = 0L
                             if (stringFailed(now)) {
-                                mc.player?.closeContainer()
+                                closeContainer()
                                 setState(State.STRING_COOLDOWN)
                             }
                         }
                         return
                     }
                     // Time to craft first, or no room for string or emeralds: findNextAction() sorts that out.
-                    if (shouldCraftBeforeString() || ! canFit(Items.STRING) || ! canFit(Items.EMERALD)) return closeMenu(State.FIND_VILLAGER)
+                    if (shouldCraftBeforeString() || ! canFit(Items.STRING) || ! canFit(Items.EMERALD)) {
+                        debug("out of string with ${emptySlots()} empty slots: crafting first")
+                        return closeMenu(State.FIND_VILLAGER)
+                    }
                     // Otherwise get more string without leaving the trade menu (waits here if the spam limit says so).
                     requestString(now)
                     return
@@ -794,7 +822,7 @@ object TradeMacro {
             // The game pauses itself when it loses focus, that shouldn't stall the macro.
             null, is PauseScreen -> return true
             is AbstractContainerScreen<*> -> {
-                mc.player?.closeContainer()
+                closeContainer()
                 waitTicks = MacroConfig.clickDelay
             }
         }
@@ -802,8 +830,25 @@ object TradeMacro {
     }
 
     private fun closeMenu(next: State) {
-        mc.player?.closeContainer()
+        closeContainer()
         setState(next, MacroConfig.clickDelay)
+    }
+
+    /**
+     * Closes whatever menu is open. A trade menu gets its payment slots shift-clicked back into the inventory first:
+     * otherwise the client drops that string from view until the server returns it, and its comeback looks like
+     * /string delivering, which made the macro send extra /string commands.
+     */
+    private fun closeContainer() {
+        val player = mc.player ?: return
+        val menu = player.containerMenu
+        if (menu is MerchantMenu && menu.carried.isEmpty) {
+            for (slot in listOf(PAYMENT_SLOT, PARK_SLOT)) {
+                if (menu.getSlot(slot).hasItem()) mc.gameMode?.handleInventoryMouseClick(menu.containerId, slot, 0, ClickType.QUICK_MOVE, player)
+            }
+        }
+        if (mc.screen is AbstractContainerScreen<*> || player.containerMenu !== player.inventoryMenu) player.closeContainer()
+        lastStringTotal = stringOnHand()
     }
 
     /** Turns towards [target] over a few ticks, then runs [action] on the tick after the rotation finished. */
@@ -965,13 +1010,22 @@ object TradeMacro {
         }.sortedBy { distanceSq(it.boundingBox, eye) }
     }
 
+    private fun availableVillagers(): Int {
+        val now = System.currentTimeMillis()
+        return villagersInReach().count { it.uuid !in ignoredVillagers && (villagerCooldowns[it.uuid] ?: 0L) <= now && it != villager }
+    }
+
     private fun nextVillager(): Entity? {
         val now = System.currentTimeMillis()
         return villagersInReach().firstOrNull { it.uuid !in ignoredVillagers && (villagerCooldowns[it.uuid] ?: 0L) <= now }
     }
 
     private fun statusLine(): String {
-        val label = if (state == State.TRADING && stringPendingSince != 0L) "Trading (getting string)" else state.label
+        val label = when {
+            spamLimited -> "${state.label} (waiting: chat spam limit)"
+            state == State.TRADING && stringPendingSince != 0L -> "Trading (getting string)"
+            else -> state.label
+        }
         var line = "§bVillager Macro §7- §f$label §7| §a${countItem(Items.EMERALD)} emeralds §7| §f${stringCount()} string" +
             " §7| Trades: §f$tradesDone §7| Blocks stored: §a$blocksStored"
 
