@@ -73,11 +73,13 @@ object TradeMacro {
     /** Used until there's enough history to time /string properly. */
     private const val PREFETCH_BELOW = 12 * 64
     private const val MIN_PREFETCH = 6 * 64
+    private const val MIN_PREFETCH_SLOTS = 2
     private const val USAGE_WINDOW_MS = 3_000L
     private const val MIN_USAGE_SPAN_MS = 500L
 
     // Vanilla servers kick for spam above 200 points: +20 per chat message or command, -1 every tick.
-    // Stay well under it (bursts are fine, ~1 command a second is sustainable) and leave room for your own chat.
+    // With the chat limit setting on, stay well under it (bursts are fine, ~1 command a second is sustainable)
+    // and leave room for your own chat.
     private const val SPAM_PER_COMMAND = 20
     private const val SPAM_LIMIT = 140
     private const val MAX_STRING_FAILS = 10
@@ -312,10 +314,10 @@ object TradeMacro {
         }
     }
 
-    /** Sends the string command unless it's already on its way or the spam limit is close. True if string is on its way. */
+    /** Sends the string command unless it's already on its way or the chat limit (if on) is close. True if string is on its way. */
     private fun requestString(now: Long): Boolean {
         if (stringPendingSince != 0L) return true
-        if (spamScore + SPAM_PER_COMMAND > SPAM_LIMIT) {
+        if (MacroConfig.chatLimit && spamScore + SPAM_PER_COMMAND > SPAM_LIMIT) {
             if (! spamLimited) debug("waiting for the chat spam limit before /${MacroConfig.stringCommand}")
             spamLimited = true
             return false
@@ -324,7 +326,8 @@ object TradeMacro {
         spamLimited = false
         spamScore += SPAM_PER_COMMAND
         stringPendingSince = now
-        debug("sent /${MacroConfig.stringCommand}: ${stringOnHand()} string on hand, ${emptySlots()} empty slots, spam budget ${SPAM_LIMIT - spamScore}")
+        val budget = if (MacroConfig.chatLimit) ", chat limit budget ${SPAM_LIMIT - spamScore}" else ""
+        debug("sent /${MacroConfig.stringCommand}: ${stringOnHand()} string on hand, ${emptySlots()} empty slots$budget")
         return true
     }
 
@@ -365,9 +368,16 @@ object TradeMacro {
      * Ask just early enough (with margin) that it arrives before running out: by then more slots have emptied.
      */
     private fun timeToAskForString(total: Int): Boolean {
-        if (emptySlots() <= MacroConfig.craftAtFreeSlots) return false
+        val empty = emptySlots()
+        // Wait for a couple of empty slots, so what it hands out is clearly more than a trade's leftovers moving around.
+        if (empty < MIN_PREFETCH_SLOTS) return false
+        // Slots holding string empty out as it's used, so this is what /string could fill once it's all traded.
+        // At or under craft-at, crafting comes first (see shouldCraftBeforeString), so don't ask now.
+        if (empty + stringSlots() <= MacroConfig.craftAtFreeSlots) return false
+        // Chat limit nearly used up: make every /string count by waiting until the string is gone, so it fills the most slots.
+        if (MacroConfig.chatLimit && spamScore + 2 * SPAM_PER_COMMAND > SPAM_LIMIT) return false
         val rate = stringPerMs() ?: return total < PREFETCH_BELOW
-        val needed = rate * (stringLatencyMs * 1.5 + 250) + 2 * 64
+        val needed = rate * (stringLatencyMs * 1.25 + 50) + 64
         return total < max(needed, MIN_PREFETCH.toDouble())
     }
 
@@ -1060,6 +1070,8 @@ object TradeMacro {
         if (menu.carried.`is`(Items.STRING)) count += menu.carried.count
         return count
     }
+
+    private fun stringSlots() = mc.player?.inventory?.nonEquipmentItems?.count { it.`is`(Items.STRING) } ?: 0
 
     private fun stringCount() = mc.player?.inventory?.nonEquipmentItems?.sumOf { if (it.`is`(Items.STRING)) it.count else 0 } ?: 0
 

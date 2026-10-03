@@ -76,6 +76,13 @@ object VillagerMacroMod: ClientModInitializer {
                         MacroConfig.craftAtFreeSlots = IntegerArgumentType.getInteger(it, "slots")
                         saved(it)
                     }))
+                    .then(literal("chatlimit")
+                        .then(literal("on").executes { MacroConfig.chatLimit = true; saved(it) })
+                        .then(literal("off").executes {
+                            MacroConfig.chatLimit = false
+                            chat("§7/string is now sent as fast as it's needed. If the server kicks you for spamming, use §f/villagermacro chatlimit on§7.")
+                            saved(it)
+                        }))
             )
         }
     }
@@ -115,7 +122,8 @@ object VillagerMacroMod: ClientModInitializer {
             "§6[Villager Macro]§r §7Reach: §f${MacroConfig.reach} §7| Click delay: §f${if (MacroConfig.clickDelay == 0) "0 (max speed)" else "${MacroConfig.clickDelay} ticks"}" +
                 " §7| Rotation: §f${MacroConfig.rotationTime} ms §7| Restock check: §f${MacroConfig.restockDelay} s" +
                 " §7| String command: §f/${MacroConfig.stringCommand}" +
-                " §7| Craft at: §f${MacroConfig.craftAtFreeSlots} free slots"
+                " §7| Craft at: §f${MacroConfig.craftAtFreeSlots} free slots" +
+                " §7| Chat limit: ${if (MacroConfig.chatLimit) "§aon" else "§coff"}"
         ))
     }
 }

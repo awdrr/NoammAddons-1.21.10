@@ -27,6 +27,12 @@ object MacroConfig {
      */
     var craftAtFreeSlots = 10
 
+    /**
+     * Keeps /string under the vanilla "kicked for spamming" limit: a few quick ones, then about one a second.
+     * Off by default: on servers without a chat limit /string is sent as fast as the string gets used.
+     */
+    var chatLimit = false
+
     /** Prints /string timings in chat (not saved). */
     var debug = false
 
@@ -42,6 +48,7 @@ object MacroConfig {
         props.getProperty("restockDelay")?.toIntOrNull()?.let { restockDelay = it.coerceIn(10, 600) }
         props.getProperty("stringCommand")?.removePrefix("/")?.trim()?.takeIf { it.isNotEmpty() }?.let { stringCommand = it }
         props.getProperty("craftAtFreeSlots")?.toIntOrNull()?.let { craftAtFreeSlots = it.coerceIn(0, 36) }
+        props.getProperty("chatLimit")?.let { chatLimit = it.toBoolean() }
     }
 
     fun save() {
@@ -52,6 +59,7 @@ object MacroConfig {
         props.setProperty("restockDelay", restockDelay.toString())
         props.setProperty("stringCommand", stringCommand)
         props.setProperty("craftAtFreeSlots", craftAtFreeSlots.toString())
+        props.setProperty("chatLimit", chatLimit.toString())
         runCatching { Files.newOutputStream(file).use { props.store(it, "Villager Trade Macro") } }
     }
 }
