@@ -1,0 +1,38 @@
+# Builds the standalone Auto Anvil mod (auto-anvil/) for Minecraft 1.21.11.
+# The built jar is uploaded as the "AutoAnvil" artifact on each run.
+
+name: auto-anvil
+on:
+  push:
+    paths:
+      - 'auto-anvil/**'
+      - '.github/workflows/auto-anvil.yml'
+  pull_request:
+    paths:
+      - 'auto-anvil/**'
+      - '.github/workflows/auto-anvil.yml'
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    defaults:
+      run:
+        working-directory: auto-anvil
+    steps:
+      - name: checkout repository
+        uses: actions/checkout@v4
+      - name: setup jdk
+        uses: actions/setup-java@v4
+        with:
+          java-version: '21'
+          distribution: 'microsoft'
+      - name: make gradle wrapper executable
+        run: chmod +x ./gradlew
+      - name: build
+        run: ./gradlew build
+      - name: capture build artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: AutoAnvil
+          path: auto-anvil/build/libs/

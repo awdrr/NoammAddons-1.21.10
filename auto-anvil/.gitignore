@@ -1,0 +1,10 @@
+.gradle/
+build/
+out/
+run/
+.idea/
+*.iml
+
+# The repo root ignores these; this project needs them to build.
+!gradle/wrapper/gradle-wrapper.jar
+!gradle/wrapper/gradle-wrapper.properties

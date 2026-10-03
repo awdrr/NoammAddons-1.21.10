@@ -1,0 +1,23 @@
+{
+	"schemaVersion": 1,
+	"id": "autoanvil",
+	"version": "${version}",
+	"name": "Auto Anvil",
+	"description": "Automatically applies the enchanted books in your inventory to your gear in an anvil, waiting for XP when you don't have enough levels.",
+	"authors": [
+		"awdrr"
+	],
+	"license": "CC0-1.0",
+	"environment": "client",
+	"entrypoints": {
+		"client": [
+			"com.awdrr.autoanvil.AutoAnvilClient"
+		]
+	},
+	"depends": {
+		"fabricloader": ">=0.17.3",
+		"minecraft": "~1.21.11",
+		"java": ">=21",
+		"fabric-api": "*"
+	}
+}
